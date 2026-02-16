@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.live.commerce.common.dto.ResultTest
--------------------------------------------------------------------------------
-Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.307 s -- in com.live.commerce.common.dto.ResultTest

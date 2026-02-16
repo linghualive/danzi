@@ -1,0 +1,24 @@
+# Maven
+target/
+*.jar
+*.war
+!.mvn/wrapper/*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime
+.pids/
+*.log
+*.pid
+
+# Environment
+.env

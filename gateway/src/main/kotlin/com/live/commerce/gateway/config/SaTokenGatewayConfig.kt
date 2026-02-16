@@ -3,6 +3,7 @@ package com.live.commerce.gateway.config
 import cn.dev33.satoken.`fun`.SaFunction
 import cn.dev33.satoken.exception.NotLoginException
 import cn.dev33.satoken.reactor.filter.SaReactorFilter
+import cn.dev33.satoken.router.SaHttpMethod
 import cn.dev33.satoken.router.SaRouter
 import cn.dev33.satoken.stp.StpUtil
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -22,8 +23,17 @@ class SaTokenGatewayConfig {
             .addExclude(
                 "/api/user/register",
                 "/api/user/login",
-                "/api/live/callback/**"
+                "/api/user/{id}",
+                "/api/live/room/{id}",
+                "/api/live/room/list",
+                "/api/live/callback/**",
+                "/api/product/**",
+                "/ws/**"
             )
+            .setBeforeAuth {
+                // 放行 CORS 预检请求
+                SaRouter.match(SaHttpMethod.OPTIONS).stop()
+            }
             .setAuth {
                 SaRouter.match("/**")
                     .check(SaFunction { StpUtil.checkLogin() })
