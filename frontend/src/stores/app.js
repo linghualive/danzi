@@ -6,7 +6,15 @@ import { shuffle } from '../utils/format.js';
 
 export const useAppStore = defineStore('app', {
     state: () => ({
-        apiBase: 'http://localhost:9000',
+        apiBase: (() => {
+            const port = window.location.port;
+            // Production: served by nginx (port 80/443), API proxied through same origin
+            if (window.location.protocol !== 'file:' && (!port || port === '80' || port === '443')) {
+                return window.location.origin;
+            }
+            // Dev mode: direct connection to gateway
+            return `http://${window.location.hostname || 'localhost'}:9000`;
+        })(),
         statusText: ['未开播', '直播中', '已结束'],
         orderStatusText: ['待支付', '已支付', '已取消'],
 
