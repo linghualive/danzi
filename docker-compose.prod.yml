@@ -39,6 +39,7 @@ services:
 
   base-service:
     image: live-commerce/base-service:latest
+    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile
@@ -59,6 +60,7 @@ services:
 
   mall-service:
     image: live-commerce/mall-service:latest
+    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile
@@ -81,6 +83,7 @@ services:
 
   gateway:
     image: live-commerce/gateway:latest
+    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile
