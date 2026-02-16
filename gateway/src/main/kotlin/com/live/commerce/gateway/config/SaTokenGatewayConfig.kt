@@ -27,7 +27,6 @@ class SaTokenGatewayConfig {
                 "/api/live/room/{id}",
                 "/api/live/room/list",
                 "/api/live/callback/**",
-                "/api/product/**",
                 "/api/live/room/*/messages",
                 "/ws/**"
             )

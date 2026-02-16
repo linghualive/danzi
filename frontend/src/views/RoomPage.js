@@ -1,0 +1,104 @@
+import { onBeforeUnmount, onMounted, watch } from '../lib/vue.js';
+import { useRoute, useRouter } from '../lib/vue-router.js';
+
+import RoomView from '../components/views/RoomView.js';
+import { useAppStore } from '../stores/app.js';
+
+export default {
+    name: 'RoomPage',
+    components: {
+        RoomView
+    },
+    setup() {
+        const route = useRoute();
+        const router = useRouter();
+        const store = useAppStore();
+
+        const enterByRoute = async () => {
+            const roomId = Number(route.params.id);
+            if (!roomId) {
+                router.replace('/rooms');
+                return;
+            }
+
+            if (store.currentRoomId !== roomId) {
+                store.cleanupRoom();
+                await store.enterRoom(roomId);
+            }
+        };
+
+        const closeEmojiOnOutsideClick = () => {
+            if (store.emojiPickerOpen) {
+                store.emojiPickerOpen = false;
+            }
+        };
+
+        onMounted(() => {
+            enterByRoute();
+            document.addEventListener('click', closeEmojiOnOutsideClick);
+        });
+
+        watch(() => route.params.id, () => {
+            enterByRoute();
+        });
+
+        watch(
+            () => [store.currentRoom?.status, store.currentRoom?.pullUrl, !!store.roomViewRefs?.videoPlayer],
+            () => {
+                store.syncPlayer();
+            }
+        );
+
+        onBeforeUnmount(() => {
+            document.removeEventListener('click', closeEmojiOnOutsideClick);
+            store.cleanupRoom();
+            store.roomViewRefs = null;
+        });
+
+        return {
+            store,
+            goRooms: () => router.push('/rooms')
+        };
+    },
+    template: `
+        <div class="view active">
+            <room-view
+                :current-room="store.currentRoom"
+                :is-room-owner="store.isRoomOwner"
+                :room-owner-info="store.roomOwnerInfo"
+                :status-text="store.statusText"
+                :products-expanded="store.productsExpanded"
+                :chat-messages="store.chatMessages"
+                :ws-status-text="store.wsStatusText"
+                :ws-connected="store.wsConnected"
+                :ws-msg-type="store.wsMsgType"
+                :msg-input="store.msgInput"
+                :emoji-picker-open="store.emojiPickerOpen"
+                :emoji-category="store.emojiCategory"
+                :products-loading="store.productsLoading"
+                :room-products="store.roomProducts"
+                :stream-ready="store.streamReady"
+                :stream-error="store.streamError"
+                @ready="store.onRoomViewReady"
+                @navigate-rooms="goRooms"
+                @start-live="store.doStartLive"
+                @stop-live="store.doStopLive"
+                @copy-text="store.copyText"
+                @toggle-products="store.productsExpanded = !store.productsExpanded"
+                @set-ws-msg-type="store.wsMsgType = $event"
+                @update-msg-input="store.updateMsgInput"
+                @send-message="store.sendMessage"
+                @send-like="store.sendLike"
+                @retry-stream="store.syncPlayer"
+                @show-product-detail="store.showProductDetail"
+                @quick-buy="store.quickBuy"
+                @open-add-product="store.openAddProductModal"
+                @delete-product="store.doDeleteProduct"
+                @edit-product="store.openEditProductModal"
+                @toggle-emoji-picker="store.toggleEmojiPicker"
+                @set-emoji-category="store.setEmojiCategory"
+                @insert-emoji="store.insertEmoji"
+            />
+        </div>
+    `
+};

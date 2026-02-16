@@ -271,7 +271,7 @@ do_package() {
     cp srs/srs.conf "$DIST_DIR/$DIST_NAME/srs/"
 
     # 复制前端页面
-    cp live.html "$DIST_DIR/$DIST_NAME/"
+    cp -r frontend "$DIST_DIR/$DIST_NAME/"
 
     # 复制部署脚本
     cp deploy.sh "$DIST_DIR/$DIST_NAME/"

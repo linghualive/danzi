@@ -55,7 +55,7 @@ start.bat status
 | Gateway（统一入口） | http://localhost:9000 |
 | base-service | http://localhost:9001 |
 | mall-service | http://localhost:9002 |
-| 前端测试页面 | 浏览器直接打开 `live.html` |
+| 前端测试页面 | 浏览器打开 `frontend/index.html` |
 | Swagger (base) | http://localhost:9001/swagger-ui.html |
 | Swagger (mall) | http://localhost:9002/swagger-ui.html |
 
@@ -65,6 +65,12 @@ start.bat status
 
 ```bash
 docker exec -i live-commerce-mysql mysql -uroot -proot123 < sql/init.sql
+```
+
+PowerShell 请使用（不要用 `<`）：
+
+```powershell
+Get-Content .\sql\init.sql | docker exec -i live-commerce-mysql mysql -uroot -proot123
 ```
 
 包含 2 个测试主播账号、2 个直播间、10 条模拟商品。
@@ -132,7 +138,7 @@ SRS 相关配置分散在多处：
 | SRS 回调地址 | `srs/srs.conf` | `on_publish` 和 `on_unpublish` 中的 `host.docker.internal:9001` 改为 base-service 的实际地址 |
 | 推流地址 | `base-service/.../LiveRoomServiceImpl.kt` | `toDTO()` 方法中的 `rtmp://localhost:1935` |
 | 拉流地址 | `base-service/.../LiveRoomServiceImpl.kt` | `toDTO()` 方法中的 `http://localhost:8080` |
-| 前端 OBS 显示 | `live.html` | 页面中硬编码的 `rtmp://localhost:1935/live` |
+| 前端 OBS 显示 | `frontend/src/components/views/RoomView.js` | 页面中硬编码的 `rtmp://localhost:1935/live` |
 | Docker 端口 | `docker-compose.yml` | SRS 的 `1935`、`8080`、`1985` 端口映射 |
 
 ### Gateway 路由
@@ -167,10 +173,10 @@ feign:
 
 ### 前端 API 地址
 
-文件：`live.html`，修改顶部的 `API_BASE` 变量：
+文件：`frontend/src/stores/app.js`，修改 `apiBase` 变量：
 
 ```javascript
-const API_BASE = 'http://你的Gateway地址:9000';
+apiBase: 'http://你的Gateway地址:9000'
 ```
 
 ## 端口汇总
@@ -208,7 +214,7 @@ live-commerce/
 ├── sql/init.sql                # 建库 + 种子数据
 ├── srs/srs.conf                # SRS 流媒体配置
 ├── docker-compose.yml          # 中间件编排
-├── live.html                   # 前端测试页面
+├── frontend/                   # Vue 前端源码与入口（frontend/index.html）
 ├── deploy.sh                   # Linux 部署脚本
 ├── deploy.bat                  # Windows 部署脚本
 └── logs/                       # 运行时日志目录

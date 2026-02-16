@@ -210,11 +210,11 @@ REM ============================================================
     REM 检查端口是否被占用
     netstat -ano 2>nul | findstr "LISTENING" | findstr ":%svc_port% " >nul 2>&1
     if not errorlevel 1 (
-        echo [WARN] %svc_name% (端口 %svc_port%) 已在运行，跳过
+        echo [WARN] %svc_name% port %svc_port% already running, skip
         exit /b 0
     )
 
-    echo [INFO] 启动 %svc_name% (端口 %svc_port%)...
+    echo [INFO] starting %svc_name% on port %svc_port%...
     start "" /b javaw -jar "%svc_module%\target\%svc_module%-1.0.0-SNAPSHOT.jar" > "%PID_DIR%\%svc_name%.log" 2>&1
 
     REM 记录 PID（通过端口查找，稍后在 wait 中写入）
@@ -308,7 +308,7 @@ REM ============================================================
     copy "srs\srs.conf" "%DIST_DIR%\%DIST_NAME%\srs\" >nul
 
     REM 复制前端页面
-    copy "live.html" "%DIST_DIR%\%DIST_NAME%\" >nul
+    xcopy "frontend" "%DIST_DIR%\%DIST_NAME%\frontend\" /E /I /Y >nul
 
     REM 复制部署脚本
     copy "deploy.sh" "%DIST_DIR%\%DIST_NAME%\" >nul
