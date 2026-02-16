@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.live.commerce.mall.MallServiceApplicationTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 7.804 s -- in com.live.commerce.mall.MallServiceApplicationTest

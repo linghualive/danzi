@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: live-commerce-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: base_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql-data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  redis:
+    image: redis:7
+    container_name: live-commerce-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  srs:
+    image: ossrs/srs:6
+    container_name: live-commerce-srs
+    ports:
+      - "1935:1935"
+      - "8080:8080"
+      - "1985:1985"
+    volumes:
+      - ./srs/srs.conf:/usr/local/srs/conf/srs.conf
+
+volumes:
+  mysql-data:
+  redis-data:
