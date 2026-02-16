@@ -3,7 +3,7 @@
 # 一键启动脚本 — 全 Docker Compose 方案
 #
 # 用法:
-#   ./run.sh              启动全部（构建 + 启动）
+#   ./run.sh              启动全部（本地构建 + 启动）
 #   ./run.sh start        同上
 #   ./run.sh stop         停止所有容器
 #   ./run.sh restart      重启所有容器
@@ -12,7 +12,8 @@
 #   ./run.sh seed         导入种子数据
 #   ./run.sh rebuild      重新编译 Java 服务并重启
 #   ./run.sh down         停止并删除容器
-#   ./run.sh clean        停止并删除容器 + 数据卷
+#   ./run.sh clean        删除容器 + 数据卷
+#   ./run.sh export       本地构建并打包部署包（传到服务器用）
 #
 
 set -e
@@ -22,6 +23,7 @@ cd "$SCRIPT_DIR"
 
 COMPOSE_FILE="docker-compose.prod.yml"
 PROJECT_NAME="live-commerce"
+IMAGES="live-commerce/base-service:latest live-commerce/mall-service:latest live-commerce/gateway:latest"
 
 # Colors
 RED='\033[0;31m'
@@ -45,7 +47,6 @@ check_docker() {
         log_error "Docker 未启动，请先启动 Docker"
         exit 1
     fi
-    # Check docker compose (v2)
     if ! docker compose version &>/dev/null; then
         log_error "需要 Docker Compose V2，请升级 Docker"
         exit 1
@@ -56,14 +57,27 @@ check_docker() {
 
 do_start() {
     check_docker
-    log_info "构建并启动所有服务..."
-    docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" up -d --build
+
+    # Auto-load images if images.tar exists (server deployment)
+    if [ -f "images.tar" ]; then
+        log_info "检测到 images.tar，加载预构建镜像..."
+        docker load < images.tar
+        rm -f images.tar
+        log_info "镜像加载完成"
+    fi
+
+    if [ -f "Dockerfile" ]; then
+        log_info "构建并启动所有服务..."
+        docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" up -d --build
+    else
+        log_info "启动所有服务（使用预构建镜像）..."
+        docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" up -d
+    fi
 
     echo ""
     log_info "所有服务已启动！等待健康检查完成..."
     echo ""
 
-    # Wait for services to become healthy
     wait_healthy
 
     echo ""
@@ -118,17 +132,14 @@ do_seed() {
     check_docker
     log_info "导入种子数据..."
 
-    # Check MySQL is running
     if ! docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" ps mysql | grep -q "running"; then
         log_error "MySQL 未运行，请先启动: ./run.sh start"
         exit 1
     fi
 
-    # Wait a moment for services to create tables via JPA
     log_info "等待 JPA 自动建表..."
     sleep 5
 
-    # Import seed data
     docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" exec -T mysql \
         mysql -uroot -p"${MYSQL_ROOT_PASSWORD:-root123}" < sql/init.sql
 
@@ -168,6 +179,62 @@ do_clean() {
     fi
 }
 
+do_export() {
+    check_docker
+    log_info "开始构建并打包部署包..."
+
+    # Step 1: Build images locally
+    log_info "[1/4] 构建 Docker 镜像..."
+    docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" build
+
+    # Step 2: Prepare dist directory
+    log_info "[2/4] 准备部署文件..."
+    local dist_dir="dist/live-commerce-docker"
+    rm -rf "$dist_dir"
+    mkdir -p "$dist_dir"
+
+    # Copy needed files
+    cp -r frontend "$dist_dir/"
+    cp -r nginx "$dist_dir/"
+    cp -r sql "$dist_dir/"
+    mkdir -p "$dist_dir/srs"
+    cp srs/srs-docker.conf "$dist_dir/srs/"
+    cp run.sh "$dist_dir/"
+    chmod +x "$dist_dir/run.sh"
+
+    # Generate server compose file (strip build: sections)
+    sed '/^    build:/,/^      target:/d' "$COMPOSE_FILE" > "$dist_dir/$COMPOSE_FILE"
+
+    # Step 3: Save Docker images
+    log_info "[3/4] 导出 Docker 镜像 (可能需要几分钟)..."
+    docker save $IMAGES > "$dist_dir/images.tar"
+
+    # Step 4: Create archive
+    log_info "[4/4] 打包压缩..."
+    cd dist
+    tar czf live-commerce-docker.tar.gz live-commerce-docker/
+    cd "$SCRIPT_DIR"
+
+    local size
+    size=$(du -sh "dist/live-commerce-docker.tar.gz" | cut -f1)
+
+    echo ""
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${GREEN}  打包完成！${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    echo ""
+    echo "  文件: dist/live-commerce-docker.tar.gz ($size)"
+    echo ""
+    echo "  部署到服务器:"
+    echo "    1. scp dist/live-commerce-docker.tar.gz user@server:/opt/"
+    echo "    2. ssh user@server"
+    echo "    3. cd /opt && tar xzf live-commerce-docker.tar.gz"
+    echo "    4. cd live-commerce-docker"
+    echo "    5. ./run.sh start"
+    echo "    6. ./run.sh seed    # 导入示例数据"
+    echo ""
+}
+
 wait_healthy() {
     local services=("lc-mysql" "lc-redis" "lc-base-service" "lc-mall-service" "lc-gateway")
     local max_wait=300
@@ -188,7 +255,6 @@ wait_healthy() {
                     break
                     ;;
                 not_found)
-                    # Container might not exist yet or no healthcheck
                     break
                     ;;
                 *)
@@ -216,11 +282,12 @@ case "${1:-start}" in
     rebuild)  do_rebuild ;;
     down)     do_down ;;
     clean)    do_clean ;;
+    export)   do_export ;;
     *)
-        echo "用法: $0 {start|stop|restart|status|logs|seed|rebuild|down|clean}"
+        echo "用法: $0 {start|stop|restart|status|logs|seed|rebuild|down|clean|export}"
         echo ""
         echo "命令说明:"
-        echo "  start     构建并启动全部服务"
+        echo "  start     构建并启动全部服务（服务器上自动加载预构建镜像）"
         echo "  stop      停止所有容器"
         echo "  restart   重启所有容器"
         echo "  status    查看容器状态"
@@ -229,6 +296,7 @@ case "${1:-start}" in
         echo "  rebuild   重新编译 Java 服务并重启"
         echo "  down      停止并删除容器"
         echo "  clean     删除容器 + 数据卷"
+        echo "  export    本地构建并打包部署包"
         exit 1
         ;;
 esac

@@ -38,6 +38,7 @@ services:
   # ==================== Java Services ====================
 
   base-service:
+    image: live-commerce/base-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -57,6 +58,7 @@ services:
     restart: unless-stopped
 
   mall-service:
+    image: live-commerce/mall-service:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -78,6 +80,7 @@ services:
     restart: unless-stopped
 
   gateway:
+    image: live-commerce/gateway:latest
     build:
       context: .
       dockerfile: Dockerfile
