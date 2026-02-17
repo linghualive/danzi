@@ -404,6 +404,51 @@ class OrderServiceTest {
     }
 
     @Test
+    fun `should confirm refund by seller`() {
+        val order = Order(
+            id = 1L,
+            orderNo = "20240101120000001",
+            userId = 1L,
+            sellerId = 100L,
+            totalAmount = BigDecimal("100.00"),
+            status = 3,
+            refundReason = "商品与描述不符",
+            refundRequestedAt = LocalDateTime.now().minusMinutes(2)
+        )
+        val items = listOf(
+            OrderItem(id = 1L, orderId = 1L, productId = 7L, productName = "Product 1", price = BigDecimal("100.00"), quantity = 1)
+        )
+        every { orderRepository.findById(1L) } returns Optional.of(order)
+        every { orderItemRepository.findByOrderId(1L) } returns items
+        every { productRepository.restoreStock(7L, 1) } returns 1
+        every { orderRepository.save(any()) } answers { firstArg() }
+
+        val result = orderService.confirmRefund(1L, 100L)
+
+        assertEquals(4, result.status)
+        verify { productRepository.restoreStock(7L, 1) }
+        verify { orderRepository.save(match { it.status == 4 }) }
+    }
+
+    @Test
+    fun `should reject refund confirmation by non seller`() {
+        val order = Order(
+            id = 1L,
+            orderNo = "20240101120000001",
+            userId = 1L,
+            sellerId = 100L,
+            totalAmount = BigDecimal("100.00"),
+            status = 3
+        )
+        every { orderRepository.findById(1L) } returns Optional.of(order)
+
+        val exception = assertThrows<BusinessException> {
+            orderService.confirmRefund(1L, 999L)
+        }
+        assertEquals(ErrorCode.FORBIDDEN, exception.code)
+    }
+
+    @Test
     fun `should reject refund request when reason is blank`() {
         val order = Order(
             id = 1L,
@@ -422,7 +467,7 @@ class OrderServiceTest {
     }
 
     @Test
-    fun `should return sold orders with paid or refund requested status only`() {
+    fun `should return sold orders with paid or refund related status only`() {
         val pending = Order(
             id = 1L,
             orderNo = "20240101120000001",
@@ -447,13 +492,21 @@ class OrderServiceTest {
             totalAmount = BigDecimal("30.00"),
             status = 3
         )
-        every { orderRepository.findBySellerId(100L) } returns listOf(pending, paid, refundRequested)
+        val refunded = Order(
+            id = 4L,
+            orderNo = "20240101120000004",
+            userId = 13L,
+            sellerId = 100L,
+            totalAmount = BigDecimal("40.00"),
+            status = 4
+        )
+        every { orderRepository.findBySellerId(100L) } returns listOf(pending, paid, refundRequested, refunded)
         every { orderItemRepository.findByOrderId(any()) } returns emptyList()
 
         val result = orderService.getSoldOrders(100L)
 
-        assertEquals(2, result.size)
-        assertTrue(result.all { it.status == 1 || it.status == 3 })
+        assertEquals(3, result.size)
+        assertTrue(result.all { it.status == 1 || it.status == 3 || it.status == 4 })
         assertFalse(result.any { it.status == 0 })
     }
 

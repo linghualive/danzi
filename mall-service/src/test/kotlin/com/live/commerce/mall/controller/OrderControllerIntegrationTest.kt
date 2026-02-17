@@ -313,6 +313,93 @@ class OrderControllerIntegrationTest : TestcontainersConfig() {
     }
 
     @Test
+    fun `should confirm refund by seller`() {
+        val product = productRepository.save(
+            Product(name = "Refund Confirm Product", price = BigDecimal("120.00"), stock = 10, sellerId = testUserId)
+        )
+        val createRequest = CreateOrderRequest(
+            items = listOf(OrderItemRequest(productId = product.id, quantity = 1))
+        )
+        val createResult = mockMvc.perform(
+            post("/api/order")
+                .header("satoken", buyerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(createRequest))
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+        val orderId = objectMapper.readTree(createResult.response.contentAsString)["data"]["id"].asLong()
+
+        mockMvc.perform(
+            put("/api/order/$orderId/pay")
+                .header("satoken", buyerToken)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+
+        mockMvc.perform(
+            put("/api/order/$orderId/refund-request")
+                .header("satoken", buyerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"reason":"不想要了"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.status").value(3))
+
+        mockMvc.perform(
+            put("/api/order/$orderId/refund-confirm")
+                .header("satoken", saToken)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.status").value(4))
+    }
+
+    @Test
+    fun `should reject refund confirmation by non seller`() {
+        val product = productRepository.save(
+            Product(name = "Refund Confirm Deny Product", price = BigDecimal("88.00"), stock = 10, sellerId = testUserId)
+        )
+        val createRequest = CreateOrderRequest(
+            items = listOf(OrderItemRequest(productId = product.id, quantity = 1))
+        )
+        val createResult = mockMvc.perform(
+            post("/api/order")
+                .header("satoken", buyerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(createRequest))
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+        val orderId = objectMapper.readTree(createResult.response.contentAsString)["data"]["id"].asLong()
+
+        mockMvc.perform(
+            put("/api/order/$orderId/pay")
+                .header("satoken", buyerToken)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+
+        mockMvc.perform(
+            put("/api/order/$orderId/refund-request")
+                .header("satoken", buyerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"reason":"不想要了"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.status").value(3))
+
+        mockMvc.perform(
+            put("/api/order/$orderId/refund-confirm")
+                .header("satoken", buyerToken)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN))
+    }
+
+    @Test
     fun `should validate refund reason`() {
         val product = productRepository.save(
             Product(name = "Refund Validate Product", price = BigDecimal("66.00"), stock = 10, sellerId = testUserId)

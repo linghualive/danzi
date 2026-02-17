@@ -5,6 +5,7 @@ import AppNavbar from './components/layout/AppNavbar.js';
 import AddProductModal from './components/modals/AddProductModal.js';
 import CreateRoomModal from './components/modals/CreateRoomModal.js';
 import ProductDetailModal from './components/modals/ProductDetailModal.js';
+import RefundReasonModal from './components/modals/RefundReasonModal.js';
 
 import { useAppStore } from './stores/app.js';
 
@@ -15,7 +16,8 @@ export default {
         AppNavbar,
         AddProductModal,
         CreateRoomModal,
-        ProductDetailModal
+        ProductDetailModal,
+        RefundReasonModal
     },
     setup() {
         const store = useAppStore();
@@ -109,6 +111,14 @@ export default {
                 @change-qty="store.changeQty"
                 @update-qty="store.updateQty"
                 @buy="store.buyFromDetail"
+            />
+
+            <refund-reason-modal
+                :visible="store.refundModalVisible"
+                :value="store.refundReasonDraft"
+                @close="store.closeRefundModal"
+                @update-value="store.refundReasonDraft = $event"
+                @submit="store.submitRefundRequest"
             />
         </div>
     `

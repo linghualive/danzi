@@ -105,7 +105,7 @@ class OrderServiceImpl(
 
     override fun getSoldOrders(userId: Long): List<OrderDTO> {
         return orderRepository.findBySellerId(userId)
-            .filter { it.status == 1 || it.status == 3 }
+            .filter { it.status == 1 || it.status == 3 || it.status == 4 }
             .sortedByDescending { it.createdAt }
             .map { buildOrderDTO(it) }
     }
@@ -170,6 +170,30 @@ class OrderServiceImpl(
         order.status = 3
         order.refundReason = request.reason.trim()
         order.refundRequestedAt = LocalDateTime.now()
+        order.updatedAt = LocalDateTime.now()
+        orderRepository.save(order)
+        return buildOrderDTO(order)
+    }
+
+    @Transactional
+    override fun confirmRefund(orderId: Long, sellerId: Long): OrderDTO {
+        val order = orderRepository.findById(orderId)
+            .orElseThrow { BusinessException(ErrorCode.ORDER_NOT_FOUND) }
+
+        if (order.sellerId != sellerId) {
+            throw BusinessException(ErrorCode.FORBIDDEN)
+        }
+
+        if (order.status != 3) {
+            throw BusinessException(ErrorCode.ORDER_STATUS_ERROR, "仅退款申请中的订单可确认退款")
+        }
+
+        val items = orderItemRepository.findByOrderId(order.id)
+        for (item in items) {
+            productRepository.restoreStock(item.productId, item.quantity)
+        }
+
+        order.status = 4
         order.updatedAt = LocalDateTime.now()
         orderRepository.save(order)
         return buildOrderDTO(order)

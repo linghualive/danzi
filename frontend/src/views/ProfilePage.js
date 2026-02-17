@@ -6,7 +6,8 @@ export default {
     name: 'ProfilePage',
     data() {
         return {
-            defaultAvatarUrl: './assets/default-avatar.svg'
+            defaultAvatarUrl: './assets/default-avatar.svg',
+            avatarFileName: ''
         };
     },
     setup() {
@@ -24,6 +25,11 @@ export default {
     methods: {
         onAvatarError(event) {
             event.target.src = this.defaultAvatarUrl;
+        },
+        handleAvatarFile(event) {
+            const file = event.target.files && event.target.files[0];
+            this.avatarFileName = file ? file.name : '';
+            this.store.uploadProfileAvatar(event);
         }
     },
     template: `
@@ -55,7 +61,14 @@ export default {
                         </div>
                         <div class="profile-row">
                             <label>头像文件</label>
-                            <input class="file-input" type="file" @change="store.uploadProfileAvatar($event)" />
+                            <label class="upload-picker">
+                                <input class="upload-picker-input" type="file" accept="image/*" @change="handleAvatarFile($event)" />
+                                <span class="upload-picker-btn">上传头像</span>
+                                <span class="upload-picker-name">{{ avatarFileName || '支持 JPG/PNG，建议小于 2MB' }}</span>
+                            </label>
+                            <div v-if="store.profileForm.avatarFileId" class="upload-picker-meta">
+                                上传成功，文件 ID: {{ store.profileForm.avatarFileId }}
+                            </div>
                         </div>
                     </div>
 

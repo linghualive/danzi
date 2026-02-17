@@ -2,13 +2,12 @@ import { nextTick } from '../lib/vue.js';
 import { defineStore } from '../lib/pinia.js';
 
 import { request } from '../services/api.js';
-import { shuffle } from '../utils/format.js';
 
 export const useAppStore = defineStore('app', {
     state: () => ({
         apiBase: 'http://localhost:9000',
         statusText: ['未开播', '直播中', '已结束', '管理员关闭'],
-        orderStatusText: ['待支付', '已支付', '已取消', '退款申请中'],
+        orderStatusText: ['待支付', '已支付', '已取消', '退款申请中', '已退款'],
 
         initialized: false,
         currentUser: null,
@@ -66,6 +65,9 @@ export const useAppStore = defineStore('app', {
         ordersLoading: false,
         soldOrders: [],
         soldOrdersLoading: false,
+        refundModalVisible: false,
+        refundTargetOrderId: null,
+        refundReasonDraft: '',
 
         createRoomModalVisible: false,
         newRoomTitle: '',
@@ -185,6 +187,7 @@ export const useAppStore = defineStore('app', {
             this.createRoomModalVisible = false;
             this.addProductModalVisible = false;
             this.productDetailModalVisible = false;
+            this.closeRefundModal();
             localStorage.removeItem('lc_user');
             this.addToast('已退出登录', 'info');
         },
@@ -358,10 +361,11 @@ export const useAppStore = defineStore('app', {
             this.loadRoomOwnerInfo();
             await this.loadHistoryMessages();
             this.connectWebSocket();
-            this.loadRoomProducts();
+            await this.loadRoomProducts();
 
             this.roomPollTimer = setInterval(() => {
                 this.loadRoomDetail();
+                this.loadRoomProducts(true);
             }, 5000);
         },
 
@@ -830,43 +834,50 @@ export const useAppStore = defineStore('app', {
             setTimeout(() => item.remove(), duration * 1000 + 500);
         },
 
-        async loadRoomProducts() {
+        async loadRoomProducts(silent = false) {
             if (!this.currentRoomId) {
                 return;
             }
 
-            this.productsLoading = true;
-            let products = [];
+            if (!silent) {
+                this.productsLoading = true;
+            }
 
             try {
                 const roomResult = await this.api('GET', `/api/product/room/${this.currentRoomId}`);
-                if (roomResult.code === 200 && Array.isArray(roomResult.data) && roomResult.data.length > 0) {
-                    products = roomResult.data.map((item) => ({
+                if (roomResult.code === 200 && Array.isArray(roomResult.data)) {
+                    this.roomProducts = roomResult.data.map((item) => ({
                         ...item,
                         imageUrl: this.fullMediaUrl(item.imageUrl)
                     }));
+
+                    if (this.currentProduct?.id) {
+                        const latestProduct = this.roomProducts.find((item) => item.id === this.currentProduct.id);
+                        if (latestProduct) {
+                            this.currentProduct = {
+                                ...this.currentProduct,
+                                stock: latestProduct.stock,
+                                status: latestProduct.status,
+                                imageUrl: latestProduct.imageUrl
+                            };
+                        }
+                    }
+                    return;
+                }
+
+                if (!silent) {
+                    this.roomProducts = [];
                 }
             } catch (error) {
+                if (!silent) {
+                    this.roomProducts = [];
+                }
                 console.warn('加载直播间商品失败', error);
-            }
-
-            if (products.length === 0 && !this.isRoomOwner) {
-                try {
-                    const result = await this.api('GET', '/api/product/list');
-                    if (result.code === 200) {
-                        const list = Array.isArray(result.data) ? result.data : (result.data?.records || result.data?.content || []);
-                        products = shuffle(list).slice(0, 6).map((item) => ({
-                            ...item,
-                            imageUrl: this.fullMediaUrl(item.imageUrl)
-                        }));
-                    }
-                } catch (error) {
-                    console.warn('加载商品列表失败', error);
+            } finally {
+                if (!silent) {
+                    this.productsLoading = false;
                 }
             }
-
-            this.roomProducts = products;
-            this.productsLoading = false;
         },
 
         async showProductDetail(product) {
@@ -925,6 +936,7 @@ export const useAppStore = defineStore('app', {
 
                 if (result.code === 200) {
                     this.addToast('下单成功', 'success');
+                    this.loadRoomProducts(true);
                 } else {
                     this.addToast(result.message || '下单失败', 'error');
                 }
@@ -984,14 +996,35 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        async requestRefund(orderId) {
-            const reason = window.prompt('请输入退款理由：');
+        requestRefund(orderId) {
+            if (!orderId) {
+                return;
+            }
+            this.refundTargetOrderId = orderId;
+            this.refundReasonDraft = '';
+            this.refundModalVisible = true;
+        },
+
+        closeRefundModal() {
+            this.refundModalVisible = false;
+            this.refundTargetOrderId = null;
+            this.refundReasonDraft = '';
+        },
+
+        async submitRefundRequest() {
+            const orderId = this.refundTargetOrderId;
+            const reason = this.refundReasonDraft.trim();
+            if (!orderId) {
+                return;
+            }
             if (!reason) {
+                this.addToast('请输入退款理由', 'error');
                 return;
             }
             try {
                 const result = await this.api('PUT', `/api/order/${orderId}/refund-request`, { reason });
                 if (result.code === 200) {
+                    this.closeRefundModal();
                     this.addToast('退款申请已提交', 'success');
                     this.loadOrders();
                 } else {
@@ -1022,6 +1055,24 @@ export const useAppStore = defineStore('app', {
                 this.addToast('网络错误', 'error');
             } finally {
                 this.soldOrdersLoading = false;
+            }
+        },
+
+        async confirmRefund(orderId) {
+            if (!orderId) {
+                return;
+            }
+            try {
+                const result = await this.api('PUT', `/api/order/${orderId}/refund-confirm`);
+                if (result.code === 200) {
+                    this.addToast('退款已确认', 'success');
+                    this.loadSoldOrders();
+                    this.loadOrders();
+                } else {
+                    this.addToast(result.message || '确认退款失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('网络错误', 'error');
             }
         },
 

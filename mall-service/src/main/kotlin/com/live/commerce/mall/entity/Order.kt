@@ -24,7 +24,7 @@ class Order(
     var totalAmount: BigDecimal = BigDecimal.ZERO,
 
     @Column(nullable = false)
-    var status: Int = 0, // 0-待支付 1-已支付 2-已取消 3-退款申请中
+    var status: Int = 0, // 0-待支付 1-已支付 2-已取消 3-退款申请中 4-已退款
 
     @Column(nullable = false)
     var expireAt: LocalDateTime = LocalDateTime.now().plusMinutes(5),

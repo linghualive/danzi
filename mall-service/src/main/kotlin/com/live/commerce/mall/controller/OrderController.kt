@@ -66,4 +66,11 @@ class OrderController(
         val order = orderService.requestRefund(id, userId, request)
         return Result.ok(order)
     }
+
+    @PutMapping("/{id}/refund-confirm")
+    fun confirmRefund(@PathVariable id: Long): Result<OrderDTO> {
+        val userId = StpUtil.getLoginIdAsLong()
+        val order = orderService.confirmRefund(id, userId)
+        return Result.ok(order)
+    }
 }

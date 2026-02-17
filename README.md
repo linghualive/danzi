@@ -59,21 +59,39 @@ start.bat status
 | Swagger (base) | http://localhost:9001/swagger-ui.html |
 | Swagger (mall) | http://localhost:9002/swagger-ui.html |
 
-## 导入种子数据
+## 导入测试数据
 
-首次启动后，表结构由 JPA 自动创建，种子数据需手动导入一次：
+首次启动后，表结构由 JPA 自动创建。建议用以下两个脚本：
+
+- `sql/clear_all_db.sql`：清空 `base_db` 和 `mall_db` 业务数据
+- `sql/seed_test_data.sql`：补齐测试数据（用户、直播间、商品、订单、消息等）
+
+Linux/macOS：
 
 ```bash
-docker exec -i live-commerce-mysql mysql -uroot -proot123 < sql/init.sql
+docker exec -i live-commerce-mysql mysql -uroot -proot123 < sql/clear_all_db.sql
+docker exec -i live-commerce-mysql mysql -uroot -proot123 < sql/seed_test_data.sql
 ```
 
-PowerShell 请使用（不要用 `<`）：
+Windows `cmd`：
 
-```powershell
-Get-Content .\sql\init.sql | docker exec -i live-commerce-mysql mysql -uroot -proot123
+```cmd
+docker exec -i live-commerce-mysql mysql -uroot -proot123 < .\sql\clear_all_db.sql && docker exec -i live-commerce-mysql mysql -uroot -proot123 < .\sql\seed_test_data.sql
 ```
 
-包含 2 个测试主播账号、2 个直播间、10 条模拟商品。
+说明：`seed_test_data.sql` 已包含订单状态样例（待支付、已支付、已取消、退款申请中、已退款），用于联调退款流程（买家申请，卖家确认）。
+
+### 测试账号（seed_test_data.sql）
+
+密码统一为：`password123`
+
+| 用户名 | 角色 | 说明 |
+|------|------|------|
+| `admin` | 管理员 | 管理用户角色、警告/关闭直播间 |
+| `anchor1` | 主播 | 直播与商品示例账号 1 |
+| `anchor2` | 主播 | 直播与商品示例账号 2 |
+| `buyer1` | 普通用户 | 买家示例账号 1 |
+| `buyer2` | 普通用户 | 买家示例账号 2 |
 
 ## 直播推流
 

@@ -27,6 +27,7 @@ export default {
                 :orders="store.soldOrders"
                 :order-status-text="store.orderStatusText"
                 :is-seller-view="true"
+                @confirm-refund="store.confirmRefund"
                 @contact-user="store.contactFromOrder"
             />
         </div>

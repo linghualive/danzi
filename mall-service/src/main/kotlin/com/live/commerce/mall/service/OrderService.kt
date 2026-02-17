@@ -22,5 +22,7 @@ interface OrderService {
 
     fun requestRefund(orderId: Long, userId: Long, request: RefundRequest): OrderDTO
 
+    fun confirmRefund(orderId: Long, sellerId: Long): OrderDTO
+
     fun autoCancelExpiredOrders()
 }

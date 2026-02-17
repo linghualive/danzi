@@ -30,9 +30,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 USE base_db;
 
 INSERT INTO `user` (id, username, password, nickname, avatar, role, created_at, updated_at) VALUES
-(1, 'anchor1', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '美妆主播小美', 'https://example.com/avatar1.jpg', 1, NOW(), NOW()),
-(2, 'anchor2', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '数码达人老王', 'https://example.com/avatar2.jpg', 1, NOW(), NOW()),
-(3, 'admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '平台管理员', 'https://example.com/avatar-admin.jpg', 2, NOW(), NOW());
+(1, 'anchor1', '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', '美妆主播小美', 'https://example.com/avatar1.jpg', 1, NOW(), NOW()),
+(2, 'anchor2', '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', '数码达人老王', 'https://example.com/avatar2.jpg', 1, NOW(), NOW()),
+(3, 'admin', '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', '平台管理员', 'https://example.com/avatar-admin.jpg', 2, NOW(), NOW());
 
 INSERT INTO live_room (id, user_id, title, cover, status, stream_key, created_at, updated_at) VALUES
 (1, 1, '小美的美妆直播间', 'https://example.com/cover1.jpg', 1, 'stream_key_room_001', NOW(), NOW()),

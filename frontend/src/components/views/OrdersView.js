@@ -20,7 +20,7 @@ export default {
             default: false
         }
     },
-    emits: ['pay-order', 'cancel-order', 'request-refund', 'contact-user'],
+    emits: ['pay-order', 'cancel-order', 'request-refund', 'confirm-refund', 'contact-user'],
     data() {
         return {
             nowTick: Date.now(),
@@ -109,6 +109,7 @@ export default {
                         <div class="order-actions" v-else>
                             <button class="btn btn-outline btn-sm" @click="$emit('contact-user', isSellerView ? order.buyerId : order.sellerId)">联系{{ isSellerView ? '买家' : '卖家' }}</button>
                             <button v-if="!isSellerView && order.status === 1" class="btn btn-danger btn-sm" @click="$emit('request-refund', order.id)">申请退款</button>
+                            <button v-if="isSellerView && order.status === 3" class="btn btn-danger btn-sm" @click="$emit('confirm-refund', order.id)">确认退款</button>
                         </div>
                     </div>
                     <div v-if="order.refundReason" class="order-header">
