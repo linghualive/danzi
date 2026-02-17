@@ -7,8 +7,8 @@ import { shuffle } from '../utils/format.js';
 export const useAppStore = defineStore('app', {
     state: () => ({
         apiBase: 'http://localhost:9000',
-        statusText: ['未开播', '直播中', '已结束'],
-        orderStatusText: ['待支付', '已支付', '已取消'],
+        statusText: ['未开播', '直播中', '已结束', '管理员关闭'],
+        orderStatusText: ['待支付', '已支付', '已取消', '退款申请中'],
 
         initialized: false,
         currentUser: null,
@@ -28,7 +28,7 @@ export const useAppStore = defineStore('app', {
         loginLoading: false,
         registerLoading: false,
 
-        roomFilter: null,
+        roomKeyword: '',
         rooms: [],
         roomsLoading: false,
 
@@ -47,6 +47,7 @@ export const useAppStore = defineStore('app', {
         roomPollTimer: null,
 
         roomOwnerInfo: null,
+        ownerFollowedByMe: false,
         roomProducts: [],
         productsLoading: false,
 
@@ -63,18 +64,33 @@ export const useAppStore = defineStore('app', {
 
         orders: [],
         ordersLoading: false,
+        soldOrders: [],
+        soldOrdersLoading: false,
 
         createRoomModalVisible: false,
         newRoomTitle: '',
-        newRoomCover: '',
+        newRoomCoverFileId: null,
 
         addProductModalVisible: false,
         editingProductId: null,
-        newProduct: { name: '', description: '', price: '', stock: '' },
+        newProduct: { name: '', description: '', price: '', stock: '', imageFileId: null },
 
         productDetailModalVisible: false,
         currentProduct: null,
         productQty: 1,
+
+        profile: {},
+        profileForm: { nickname: '', bio: '', avatarFileId: null },
+        followStats: { followingCount: 0, followerCount: 0, followedByMe: false },
+
+        conversations: [],
+        currentConversationTargetId: null,
+        currentConversationName: '',
+        currentConversationMessages: [],
+        newPrivateMessage: '',
+
+        adminUsers: [],
+        adminRooms: [],
 
         toasts: []
     }),
@@ -89,6 +105,14 @@ export const useAppStore = defineStore('app', {
 
         filteredRooms(state) {
             return state.rooms;
+        },
+
+        currentUserId(state) {
+            return state.currentUser?.userId || state.currentUser?.id || 0;
+        },
+
+        isAdmin(state) {
+            return (state.currentUser?.role || 0) === 2;
         },
 
         isRoomOwner(state) {
@@ -228,22 +252,20 @@ export const useAppStore = defineStore('app', {
             }
         },
 
-        setRoomFilter(status) {
-            this.roomFilter = status;
-            this.loadRooms();
-        },
-
         async loadRooms() {
             this.roomsLoading = true;
             try {
                 let path = '/api/live/room/list?size=50';
-                if (this.roomFilter !== null) {
-                    path += `&status=${this.roomFilter}`;
+                if (this.roomKeyword && this.roomKeyword.trim()) {
+                    path += `&keyword=${encodeURIComponent(this.roomKeyword.trim())}`;
                 }
                 const result = await this.api('GET', path);
                 if (result.code === 200) {
                     const data = result.data;
-                    this.rooms = Array.isArray(data) ? data : (data?.content || data?.records || []);
+                    this.rooms = (Array.isArray(data) ? data : (data?.content || data?.records || [])).map((item) => ({
+                        ...item,
+                        coverUrl: this.fullMediaUrl(item.coverUrl)
+                    }));
                 } else {
                     this.rooms = [];
                     this.addToast(result.message || '直播间加载失败', 'error');
@@ -258,8 +280,38 @@ export const useAppStore = defineStore('app', {
 
         openCreateRoomModal() {
             this.newRoomTitle = '';
-            this.newRoomCover = '';
+            this.newRoomCoverFileId = null;
             this.createRoomModalVisible = true;
+        },
+
+        fullMediaUrl(path) {
+            if (!path) return '';
+            if (/^https?:\/\//.test(path)) return path;
+            if (path.startsWith('/')) return `${this.apiBase}${path}`;
+            return path;
+        },
+
+        async uploadRoomCover(file) {
+            try {
+                const form = new FormData();
+                form.append('file', file);
+                const response = await fetch(`${this.apiBase}/api/base/media/upload`, {
+                    method: 'POST',
+                    headers: {
+                        satoken: this.currentUser?.token || ''
+                    },
+                    body: form
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    this.newRoomCoverFileId = result.data.id;
+                    this.addToast('封面上传成功', 'success');
+                } else {
+                    this.addToast(result.message || '封面上传失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('封面上传失败', 'error');
+            }
         },
 
         async doCreateRoom() {
@@ -270,14 +322,15 @@ export const useAppStore = defineStore('app', {
 
             try {
                 const body = { title: this.newRoomTitle };
-                if (this.newRoomCover) {
-                    body.cover = this.newRoomCover;
+                if (this.newRoomCoverFileId) {
+                    body.coverFileId = this.newRoomCoverFileId;
                 }
                 const result = await this.api('POST', '/api/live/room', body);
-                if (result.code === 200) {
+                if (result.code === 200 && result.data) {
                     this.createRoomModalVisible = false;
-                    this.addToast('直播间创建成功', 'success');
+                    this.addToast('直播间已就绪', 'success');
                     await this.loadRooms();
+                    window.location.hash = `#/room/${result.data.id}`;
                     return true;
                 }
 
@@ -345,6 +398,7 @@ export const useAppStore = defineStore('app', {
             this.currentRoomId = null;
             this.currentRoom = null;
             this.roomOwnerInfo = null;
+            this.ownerFollowedByMe = false;
             this.roomProducts = [];
             this.pendingPullUrl = '';
             this.wsStatusText = '未连接';
@@ -362,7 +416,10 @@ export const useAppStore = defineStore('app', {
                     return;
                 }
 
-                this.currentRoom = result.data;
+                this.currentRoom = {
+                    ...result.data,
+                    coverUrl: this.fullMediaUrl(result.data.coverUrl)
+                };
                 this.syncPlayer();
             } catch (error) {
                 console.error('加载房间失败', error);
@@ -376,13 +433,50 @@ export const useAppStore = defineStore('app', {
             }
 
             try {
-                const result = await this.api('GET', `/api/user/${userId}`);
+                const result = await this.api('GET', `/api/user/profile/${userId}`);
                 if (result.code === 200 && result.data) {
                     this.roomOwnerInfo = result.data;
+                }
+                if (this.currentUserId && userId !== this.currentUserId) {
+                    const statsResult = await this.api('GET', `/api/user/follow/${userId}/stats`);
+                    if (statsResult.code === 200 && statsResult.data) {
+                        this.ownerFollowedByMe = !!statsResult.data.followedByMe;
+                    }
                 }
             } catch (error) {
                 console.warn('加载主播信息失败', error);
             }
+        },
+
+        async toggleFollowOwner() {
+            const targetId = this.roomOwnerInfo?.userId;
+            if (!targetId) return;
+
+            try {
+                if (this.ownerFollowedByMe) {
+                    const result = await this.api('DELETE', `/api/user/follow/${targetId}`);
+                    if (result.code === 200) {
+                        this.ownerFollowedByMe = false;
+                        this.addToast('已取消关注', 'info');
+                    }
+                } else {
+                    const result = await this.api('POST', `/api/user/follow/${targetId}`);
+                    if (result.code === 200) {
+                        this.ownerFollowedByMe = true;
+                        this.addToast('关注成功', 'success');
+                    } else {
+                        this.addToast(result.message || '关注失败', 'error');
+                    }
+                }
+            } catch (error) {
+                this.addToast('关注操作失败', 'error');
+            }
+        },
+
+        contactRoomOwner() {
+            const targetId = this.roomOwnerInfo?.userId;
+            if (!targetId) return;
+            this.contactFromOrder(targetId);
         },
 
         async loadHistoryMessages() {
@@ -747,7 +841,10 @@ export const useAppStore = defineStore('app', {
             try {
                 const roomResult = await this.api('GET', `/api/product/room/${this.currentRoomId}`);
                 if (roomResult.code === 200 && Array.isArray(roomResult.data) && roomResult.data.length > 0) {
-                    products = roomResult.data;
+                    products = roomResult.data.map((item) => ({
+                        ...item,
+                        imageUrl: this.fullMediaUrl(item.imageUrl)
+                    }));
                 }
             } catch (error) {
                 console.warn('加载直播间商品失败', error);
@@ -758,7 +855,10 @@ export const useAppStore = defineStore('app', {
                     const result = await this.api('GET', '/api/product/list');
                     if (result.code === 200) {
                         const list = Array.isArray(result.data) ? result.data : (result.data?.records || result.data?.content || []);
-                        products = shuffle(list).slice(0, 6);
+                        products = shuffle(list).slice(0, 6).map((item) => ({
+                            ...item,
+                            imageUrl: this.fullMediaUrl(item.imageUrl)
+                        }));
                     }
                 } catch (error) {
                     console.warn('加载商品列表失败', error);
@@ -777,7 +877,10 @@ export const useAppStore = defineStore('app', {
             try {
                 const result = await this.api('GET', `/api/product/${product.id}`);
                 if (result.code === 200 && result.data) {
-                    this.currentProduct = result.data;
+                    this.currentProduct = {
+                        ...result.data,
+                        imageUrl: this.fullMediaUrl(result.data.imageUrl)
+                    };
                 }
             } catch (error) {
                 console.warn('获取商品详情失败', error);
@@ -835,9 +938,12 @@ export const useAppStore = defineStore('app', {
             try {
                 const result = await this.api('GET', '/api/order/list');
                 if (result.code === 200) {
-                    this.orders = Array.isArray(result.data)
+                    this.orders = (Array.isArray(result.data)
                         ? result.data
-                        : (result.data?.records || result.data?.content || []);
+                        : (result.data?.records || result.data?.content || [])).map((item) => ({
+                        ...item,
+                        role: 'buyer'
+                    }));
                 } else {
                     this.orders = [];
                     this.addToast(result.message || '订单加载失败', 'error');
@@ -878,6 +984,52 @@ export const useAppStore = defineStore('app', {
             }
         },
 
+        async requestRefund(orderId) {
+            const reason = window.prompt('请输入退款理由：');
+            if (!reason) {
+                return;
+            }
+            try {
+                const result = await this.api('PUT', `/api/order/${orderId}/refund-request`, { reason });
+                if (result.code === 200) {
+                    this.addToast('退款申请已提交', 'success');
+                    this.loadOrders();
+                } else {
+                    this.addToast(result.message || '退款申请失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('网络错误', 'error');
+            }
+        },
+
+        async loadSoldOrders() {
+            this.soldOrdersLoading = true;
+            try {
+                const result = await this.api('GET', '/api/order/sold');
+                if (result.code === 200) {
+                    this.soldOrders = (Array.isArray(result.data)
+                        ? result.data
+                        : (result.data?.records || result.data?.content || [])).map((item) => ({
+                        ...item,
+                        role: 'seller'
+                    }));
+                } else {
+                    this.soldOrders = [];
+                    this.addToast(result.message || '卖出订单加载失败', 'error');
+                }
+            } catch (error) {
+                this.soldOrders = [];
+                this.addToast('网络错误', 'error');
+            } finally {
+                this.soldOrdersLoading = false;
+            }
+        },
+
+        contactFromOrder(targetUserId) {
+            if (!targetUserId) return;
+            window.location.hash = `#/messages?target=${targetUserId}`;
+        },
+
         async copyText(value) {
             const text = String(value ?? '');
             if (!text) {
@@ -892,9 +1044,197 @@ export const useAppStore = defineStore('app', {
             }
         },
 
+        async loadMyProfile() {
+            try {
+                const [profileResult, statsResult] = await Promise.all([
+                    this.api('GET', '/api/user/profile/me'),
+                    this.api('GET', `/api/user/follow/${this.currentUserId}/stats`)
+                ]);
+                if (profileResult.code === 200 && profileResult.data) {
+                    this.profile = profileResult.data;
+                    this.profileForm.nickname = profileResult.data.nickname || '';
+                    this.profileForm.bio = profileResult.data.bio || '';
+                }
+                if (statsResult.code === 200 && statsResult.data) {
+                    this.followStats = statsResult.data;
+                }
+            } catch (error) {
+                this.addToast('加载个人资料失败', 'error');
+            }
+        },
+
+        async uploadProfileAvatar(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            try {
+                const form = new FormData();
+                form.append('file', file);
+                const response = await fetch(`${this.apiBase}/api/base/media/upload`, {
+                    method: 'POST',
+                    headers: {
+                        satoken: this.currentUser?.token || ''
+                    },
+                    body: form
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    this.profileForm.avatarFileId = result.data.id;
+                    this.addToast('头像上传成功', 'success');
+                } else {
+                    this.addToast(result.message || '头像上传失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('头像上传失败', 'error');
+            }
+        },
+
+        async saveMyProfile() {
+            try {
+                const body = {
+                    nickname: this.profileForm.nickname,
+                    bio: this.profileForm.bio
+                };
+                if (this.profileForm.avatarFileId) {
+                    body.avatarFileId = this.profileForm.avatarFileId;
+                }
+                const result = await this.api('PUT', '/api/user/profile/me', body);
+                if (result.code === 200 && result.data) {
+                    this.profile = result.data;
+                    if (this.currentUser) {
+                        this.currentUser.nickname = result.data.nickname;
+                        localStorage.setItem('lc_user', JSON.stringify(this.currentUser));
+                    }
+                    this.addToast('资料已保存', 'success');
+                } else {
+                    this.addToast(result.message || '保存失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('保存失败', 'error');
+            }
+        },
+
+        async loadConversations() {
+            try {
+                const result = await this.api('GET', '/api/user/message/conversations');
+                if (result.code === 200) {
+                    this.conversations = Array.isArray(result.data) ? result.data : [];
+                } else {
+                    this.conversations = [];
+                }
+            } catch (error) {
+                this.conversations = [];
+            }
+        },
+
+        async selectConversation(targetUserId) {
+            if (!targetUserId) return;
+            this.currentConversationTargetId = targetUserId;
+            const selected = this.conversations.find((item) => item.targetUserId === targetUserId);
+            this.currentConversationName = selected?.targetNickname || selected?.targetUserName || `用户${targetUserId}`;
+            try {
+                const result = await this.api('GET', `/api/user/message/conversation/${targetUserId}`);
+                if (result.code === 200) {
+                    this.currentConversationMessages = Array.isArray(result.data) ? result.data : [];
+                }
+            } catch (error) {
+                this.currentConversationMessages = [];
+            }
+        },
+
+        async sendPrivateMessage() {
+            if (!this.currentConversationTargetId || !this.newPrivateMessage.trim()) {
+                return;
+            }
+            try {
+                const result = await this.api('POST', '/api/user/message/send', {
+                    receiverId: this.currentConversationTargetId,
+                    content: this.newPrivateMessage.trim()
+                });
+                if (result.code === 200) {
+                    this.newPrivateMessage = '';
+                    await this.selectConversation(this.currentConversationTargetId);
+                    await this.loadConversations();
+                } else {
+                    this.addToast(result.message || '发送失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('发送失败', 'error');
+            }
+        },
+
+        async loadAdminUsers() {
+            if (!this.isAdmin) return;
+            try {
+                const result = await this.api('GET', '/api/admin/users?size=50');
+                if (result.code === 200) {
+                    this.adminUsers = result.data?.content || [];
+                }
+            } catch (error) {
+                this.adminUsers = [];
+            }
+        },
+
+        async updateUserRole(userId, role) {
+            try {
+                const result = await this.api('PUT', `/api/admin/user/${userId}/role`, { role });
+                if (result.code === 200) {
+                    this.addToast('角色已更新', 'success');
+                    this.loadAdminUsers();
+                } else {
+                    this.addToast(result.message || '更新失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('更新失败', 'error');
+            }
+        },
+
+        async loadAdminRooms() {
+            if (!this.isAdmin) return;
+            try {
+                const result = await this.api('GET', '/api/admin/rooms?size=50');
+                if (result.code === 200) {
+                    this.adminRooms = result.data?.content || [];
+                }
+            } catch (error) {
+                this.adminRooms = [];
+            }
+        },
+
+        async warnRoom(roomId) {
+            const message = window.prompt('请输入警告内容：');
+            if (!message) return;
+            try {
+                const result = await this.api('POST', `/api/admin/room/${roomId}/warn`, { message });
+                if (result.code === 200) {
+                    this.addToast('警告已发送', 'success');
+                } else {
+                    this.addToast(result.message || '警告失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('警告失败', 'error');
+            }
+        },
+
+        async closeRoom(roomId) {
+            const reason = window.prompt('请输入关闭原因：');
+            if (!reason) return;
+            try {
+                const result = await this.api('PUT', `/api/admin/room/${roomId}/close`, { reason });
+                if (result.code === 200) {
+                    this.addToast('直播间已关闭', 'success');
+                    this.loadAdminRooms();
+                } else {
+                    this.addToast(result.message || '关闭失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('关闭失败', 'error');
+            }
+        },
+
         openAddProductModal() {
             this.editingProductId = null;
-            this.newProduct = { name: '', description: '', price: '', stock: '' };
+            this.newProduct = { name: '', description: '', price: '', stock: '', imageFileId: null };
             this.addProductModalVisible = true;
         },
 
@@ -904,13 +1244,37 @@ export const useAppStore = defineStore('app', {
                 name: product.name || product.productName || '',
                 description: product.description || '',
                 price: product.price != null ? String(product.price) : '',
-                stock: product.stock != null ? String(product.stock) : ''
+                stock: product.stock != null ? String(product.stock) : '',
+                imageFileId: product.imageFileId || null
             };
             this.addProductModalVisible = true;
         },
 
         updateNewProductField({ field, value }) {
             this.newProduct[field] = value;
+        },
+
+        async uploadProductImage(file) {
+            try {
+                const form = new FormData();
+                form.append('file', file);
+                const response = await fetch(`${this.apiBase}/api/product/media/upload`, {
+                    method: 'POST',
+                    headers: {
+                        satoken: this.currentUser?.token || ''
+                    },
+                    body: form
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    this.newProduct.imageFileId = result.data.id;
+                    this.addToast('商品图片上传成功', 'success');
+                } else {
+                    this.addToast(result.message || '商品图片上传失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('商品图片上传失败', 'error');
+            }
         },
 
         async doSaveProduct() {
@@ -940,6 +1304,9 @@ export const useAppStore = defineStore('app', {
                 }
                 if (!isEditing) {
                     body.roomId = this.currentRoomId;
+                }
+                if (this.newProduct.imageFileId) {
+                    body.imageFileId = this.newProduct.imageFileId;
                 }
 
                 const method = isEditing ? 'PUT' : 'POST';

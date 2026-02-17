@@ -18,6 +18,9 @@ class LiveCallbackServiceImpl(
     override fun onPublish(request: SrsCallbackRequest) {
         val room = liveRoomRepository.findByStreamKey(request.stream)
             ?: throw BusinessException(ErrorCode.ROOM_NOT_FOUND)
+        if (room.status == 3) {
+            throw BusinessException(ErrorCode.ROOM_CLOSED_BY_ADMIN)
+        }
         room.status = 1
         room.updatedAt = LocalDateTime.now()
         liveRoomRepository.save(room)

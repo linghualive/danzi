@@ -32,9 +32,10 @@ export default {
             <rooms-view
                 :rooms-loading="store.roomsLoading"
                 :filtered-rooms="store.filteredRooms"
-                :room-filter="store.roomFilter"
+                :room-keyword="store.roomKeyword"
                 :status-text="store.statusText"
-                @set-room-filter="store.setRoomFilter"
+                @update-room-keyword="store.roomKeyword = $event"
+                @search="store.loadRooms"
                 @navigate-room="goRoom"
             />
         </div>

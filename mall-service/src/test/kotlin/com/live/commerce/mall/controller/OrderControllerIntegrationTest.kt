@@ -51,7 +51,9 @@ class OrderControllerIntegrationTest : TestcontainersConfig() {
     lateinit var userFeignClient: UserFeignClient
 
     private var saToken: String = ""
+    private var buyerToken: String = ""
     private val testUserId = 1L
+    private val buyerUserId = 2L
 
     @BeforeEach
     fun setUp() {
@@ -62,10 +64,14 @@ class OrderControllerIntegrationTest : TestcontainersConfig() {
         // Login via Sa-Token and obtain the token
         StpUtil.login(testUserId)
         saToken = StpUtil.getTokenValue()
+        StpUtil.login(buyerUserId)
+        buyerToken = StpUtil.getTokenValue()
 
         // Mock the Feign client to return a valid user
         val userDTO = UserDTO(id = testUserId, username = "testuser", nickname = "Test User", avatar = null, role = 0)
         Mockito.`when`(userFeignClient.getUserById(testUserId)).thenReturn(Result.ok(userDTO))
+        val buyerDTO = UserDTO(id = buyerUserId, username = "buyer", nickname = "Buyer User", avatar = null, role = 0)
+        Mockito.`when`(userFeignClient.getUserById(buyerUserId)).thenReturn(Result.ok(buyerDTO))
     }
 
     @Test
@@ -93,7 +99,7 @@ class OrderControllerIntegrationTest : TestcontainersConfig() {
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.code").value(200))
-            .andExpect(jsonPath("$.data.userId").value(testUserId))
+            .andExpect(jsonPath("$.data.buyerId").value(testUserId))
             .andExpect(jsonPath("$.data.totalAmount").value(250.00))
             .andExpect(jsonPath("$.data.status").value(0))
             .andExpect(jsonPath("$.data.items.length()").value(2))
@@ -222,5 +228,122 @@ class OrderControllerIntegrationTest : TestcontainersConfig() {
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.code").value(ErrorCode.ORDER_NOT_FOUND))
+    }
+
+    @Test
+    fun `should return sold orders for seller with paid orders only`() {
+        val product = productRepository.save(
+            Product(name = "Seller Product", price = BigDecimal("88.00"), stock = 20, sellerId = testUserId)
+        )
+
+        val pendingOrderRequest = CreateOrderRequest(
+            items = listOf(OrderItemRequest(productId = product.id, quantity = 1))
+        )
+        mockMvc.perform(
+            post("/api/order")
+                .header("satoken", buyerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(pendingOrderRequest))
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+
+        val paidOrderResult = mockMvc.perform(
+            post("/api/order")
+                .header("satoken", buyerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(pendingOrderRequest))
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+        val paidOrderId = objectMapper.readTree(paidOrderResult.response.contentAsString)["data"]["id"].asLong()
+
+        mockMvc.perform(
+            put("/api/order/$paidOrderId/pay")
+                .header("satoken", buyerToken)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+
+        mockMvc.perform(
+            get("/api/order/sold")
+                .header("satoken", saToken)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.length()").value(1))
+            .andExpect(jsonPath("$.data[0].status").value(1))
+    }
+
+    @Test
+    fun `should request refund for paid order via API`() {
+        val product = productRepository.save(
+            Product(name = "Refund Product", price = BigDecimal("120.00"), stock = 10, sellerId = testUserId)
+        )
+        val createRequest = CreateOrderRequest(
+            items = listOf(OrderItemRequest(productId = product.id, quantity = 1))
+        )
+        val createResult = mockMvc.perform(
+            post("/api/order")
+                .header("satoken", buyerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(createRequest))
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+        val orderId = objectMapper.readTree(createResult.response.contentAsString)["data"]["id"].asLong()
+
+        mockMvc.perform(
+            put("/api/order/$orderId/pay")
+                .header("satoken", buyerToken)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+
+        mockMvc.perform(
+            put("/api/order/$orderId/refund-request")
+                .header("satoken", buyerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"reason":"不想要了"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.status").value(3))
+            .andExpect(jsonPath("$.data.refundReason").value("不想要了"))
+    }
+
+    @Test
+    fun `should validate refund reason`() {
+        val product = productRepository.save(
+            Product(name = "Refund Validate Product", price = BigDecimal("66.00"), stock = 10, sellerId = testUserId)
+        )
+        val createRequest = CreateOrderRequest(
+            items = listOf(OrderItemRequest(productId = product.id, quantity = 1))
+        )
+        val createResult = mockMvc.perform(
+            post("/api/order")
+                .header("satoken", buyerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(createRequest))
+        )
+            .andExpect(status().isOk)
+            .andReturn()
+        val orderId = objectMapper.readTree(createResult.response.contentAsString)["data"]["id"].asLong()
+
+        mockMvc.perform(
+            put("/api/order/$orderId/pay")
+                .header("satoken", buyerToken)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+
+        mockMvc.perform(
+            put("/api/order/$orderId/refund-request")
+                .header("satoken", buyerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"reason":""}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(ErrorCode.PARAM_ERROR))
     }
 }

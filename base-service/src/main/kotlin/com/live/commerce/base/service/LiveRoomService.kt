@@ -7,7 +7,8 @@ import com.live.commerce.common.dto.PageResult
 interface LiveRoomService {
     fun createRoom(userId: Long, request: CreateRoomRequest): LiveRoomDTO
     fun getRoomById(id: Long): LiveRoomDTO
-    fun listRooms(page: Int, size: Int, status: Int?): PageResult<LiveRoomDTO>
+    fun listRooms(page: Int, size: Int, keyword: String?): PageResult<LiveRoomDTO>
     fun startLive(roomId: Long, userId: Long): LiveRoomDTO
     fun stopLive(roomId: Long, userId: Long): LiveRoomDTO
+    fun adminCloseRoom(roomId: Long, adminId: Long, reason: String): LiveRoomDTO
 }

@@ -101,7 +101,7 @@ class E2EAndSecurityTest : TestcontainersConfig() {
         val (_, token) = registerAndLogin(username)
 
         // Step 1: Create live room
-        val createReq = CreateRoomRequest("E2E Live Room", "cover.jpg")
+        val createReq = CreateRoomRequest("E2E Live Room")
         val createResult = mockMvc.perform(
             post("/api/live/room")
                 .header("satoken", token)

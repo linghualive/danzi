@@ -7,11 +7,12 @@ import java.time.LocalDateTime
 data class ProductDTO(
     val id: Long,
     val roomId: Long?,
+    val sellerId: Long,
     val name: String,
     val description: String?,
     val price: BigDecimal,
     val stock: Int,
-    val image: String?,
+    val imageUrl: String?,
     val status: Int,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime
@@ -20,11 +21,12 @@ data class ProductDTO(
         fun from(product: Product): ProductDTO = ProductDTO(
             id = product.id,
             roomId = product.roomId,
+            sellerId = product.sellerId,
             name = product.name,
             description = product.description,
             price = product.price,
             stock = product.stock,
-            image = product.image,
+            imageUrl = product.imageFileId?.let { "/api/product/media/public/$it" } ?: product.image,
             status = product.status,
             createdAt = product.createdAt,
             updatedAt = product.updatedAt

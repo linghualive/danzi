@@ -14,6 +14,7 @@ import com.live.commerce.mall.repository.OrderItemRepository
 import com.live.commerce.mall.repository.OrderRepository
 import com.live.commerce.mall.repository.ProductRepository
 import com.live.commerce.mall.service.impl.OrderServiceImpl
+import com.live.commerce.mall.support.UserPermissionSupport
 import io.mockk.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -29,6 +30,7 @@ class OrderServiceTest {
     private lateinit var orderItemRepository: OrderItemRepository
     private lateinit var productRepository: ProductRepository
     private lateinit var userFeignClient: UserFeignClient
+    private lateinit var userPermissionSupport: UserPermissionSupport
     private lateinit var orderService: OrderService
 
     @BeforeEach
@@ -37,7 +39,11 @@ class OrderServiceTest {
         orderItemRepository = mockk()
         productRepository = mockk()
         userFeignClient = mockk()
-        orderService = OrderServiceImpl(orderRepository, orderItemRepository, productRepository, userFeignClient)
+        userPermissionSupport = UserPermissionSupport(userFeignClient)
+        every { userFeignClient.getUserById(any()) } returns Result.ok(
+            UserDTO(id = 1L, username = "testuser", nickname = "Test", avatar = null, role = 0)
+        )
+        orderService = OrderServiceImpl(orderRepository, orderItemRepository, productRepository, userFeignClient, userPermissionSupport)
     }
 
     @Test
@@ -53,8 +59,8 @@ class OrderServiceTest {
         val userDTO = UserDTO(id = userId, username = "testuser", nickname = "Test", avatar = null, role = 0)
         every { userFeignClient.getUserById(userId) } returns Result.ok(userDTO)
 
-        val product1 = Product(id = 1L, name = "Product 1", price = BigDecimal("100.00"), stock = 10)
-        val product2 = Product(id = 2L, name = "Product 2", price = BigDecimal("50.00"), stock = 5)
+        val product1 = Product(id = 1L, sellerId = 100L, name = "Product 1", price = BigDecimal("100.00"), stock = 10)
+        val product2 = Product(id = 2L, sellerId = 100L, name = "Product 2", price = BigDecimal("50.00"), stock = 5)
         every { productRepository.findById(1L) } returns Optional.of(product1)
         every { productRepository.findById(2L) } returns Optional.of(product2)
 
@@ -80,12 +86,12 @@ class OrderServiceTest {
 
         assertNotNull(result)
         assertEquals(1L, result.id)
-        assertEquals(userId, result.userId)
+        assertEquals(userId, result.buyerId)
         assertEquals(BigDecimal("250.00"), result.totalAmount)
         assertEquals(0, result.status)
         assertEquals(2, result.items.size)
 
-        verify { userFeignClient.getUserById(userId) }
+        verify(atLeast = 1) { userFeignClient.getUserById(userId) }
         verify { productRepository.deductStock(1L, 2) }
         verify { productRepository.deductStock(2L, 1) }
         verify { orderRepository.save(any()) }
@@ -134,7 +140,7 @@ class OrderServiceTest {
         val userDTO = UserDTO(id = userId, username = "testuser", nickname = "Test", avatar = null, role = 0)
         every { userFeignClient.getUserById(userId) } returns Result.ok(userDTO)
 
-        val product = Product(id = 1L, name = "Product 1", price = BigDecimal("100.00"), stock = 5)
+        val product = Product(id = 1L, sellerId = 100L, name = "Product 1", price = BigDecimal("100.00"), stock = 5)
         every { productRepository.findById(1L) } returns Optional.of(product)
         every { productRepository.deductStock(1L, 100) } returns 0
 
@@ -154,7 +160,7 @@ class OrderServiceTest {
         val userDTO = UserDTO(id = userId, username = "testuser", nickname = "Test", avatar = null, role = 0)
         every { userFeignClient.getUserById(userId) } returns Result.ok(userDTO)
 
-        val product = Product(id = 1L, name = "Product 1", price = BigDecimal("100.00"), stock = 10)
+        val product = Product(id = 1L, sellerId = 100L, name = "Product 1", price = BigDecimal("100.00"), stock = 10)
         every { productRepository.findById(1L) } returns Optional.of(product)
         every { productRepository.deductStock(1L, 1) } returns 1
 
@@ -191,8 +197,8 @@ class OrderServiceTest {
         val userDTO = UserDTO(id = userId, username = "testuser", nickname = "Test", avatar = null, role = 0)
         every { userFeignClient.getUserById(userId) } returns Result.ok(userDTO)
 
-        val product1 = Product(id = 1L, name = "Product 1", price = BigDecimal("10.50"), stock = 10)
-        val product2 = Product(id = 2L, name = "Product 2", price = BigDecimal("20.00"), stock = 5)
+        val product1 = Product(id = 1L, sellerId = 100L, name = "Product 1", price = BigDecimal("10.50"), stock = 10)
+        val product2 = Product(id = 2L, sellerId = 100L, name = "Product 2", price = BigDecimal("20.00"), stock = 5)
         every { productRepository.findById(1L) } returns Optional.of(product1)
         every { productRepository.findById(2L) } returns Optional.of(product2)
         every { productRepository.deductStock(1L, 3) } returns 1
@@ -224,6 +230,7 @@ class OrderServiceTest {
             id = 1L,
             orderNo = "20240101120000001",
             userId = 1L,
+            sellerId = 100L,
             totalAmount = BigDecimal("100.00"),
             status = 0
         )
@@ -259,6 +266,7 @@ class OrderServiceTest {
             id = 1L,
             orderNo = "20240101120000001",
             userId = 1L,
+            sellerId = 100L,
             totalAmount = BigDecimal("100.00"),
             status = 0
         )
@@ -282,6 +290,7 @@ class OrderServiceTest {
             id = 1L,
             orderNo = "20240101120000001",
             userId = 1L,
+            sellerId = 100L,
             totalAmount = BigDecimal("100.00"),
             status = 1 // already paid
         )
@@ -300,6 +309,7 @@ class OrderServiceTest {
             id = 1L,
             orderNo = "20240101120000001",
             userId = 1L,
+            sellerId = 100L,
             totalAmount = BigDecimal("100.00"),
             status = 0
         )
@@ -328,6 +338,7 @@ class OrderServiceTest {
             id = 1L,
             orderNo = "20240101120000001",
             userId = 1L,
+            sellerId = 100L,
             totalAmount = BigDecimal("100.00"),
             status = 1 // already paid
         )
@@ -346,6 +357,7 @@ class OrderServiceTest {
             id = 1L,
             orderNo = "20240101120000001",
             userId = 1L,
+            sellerId = 100L,
             totalAmount = BigDecimal("100.00"),
             status = 0
         )
@@ -363,5 +375,151 @@ class OrderServiceTest {
             orderService.cancelOrder(1L, 999L) // userId 999 is not the owner
         }
         assertEquals(ErrorCode.FORBIDDEN, cancelException.code)
+    }
+
+    @Test
+    fun `should request refund for paid order`() {
+        val order = Order(
+            id = 1L,
+            orderNo = "20240101120000001",
+            userId = 1L,
+            sellerId = 100L,
+            totalAmount = BigDecimal("100.00"),
+            status = 1
+        )
+        every { orderRepository.findById(1L) } returns Optional.of(order)
+        every { orderRepository.save(any()) } answers { firstArg() }
+        every { orderItemRepository.findByOrderId(1L) } returns emptyList()
+
+        val result = orderService.requestRefund(
+            1L,
+            1L,
+            com.live.commerce.mall.dto.RefundRequest(reason = "商品与描述不符")
+        )
+
+        assertEquals(3, result.status)
+        assertEquals("商品与描述不符", result.refundReason)
+        assertNotNull(result.refundRequestedAt)
+        verify { orderRepository.save(match { it.status == 3 && it.refundReason == "商品与描述不符" }) }
+    }
+
+    @Test
+    fun `should reject refund request when reason is blank`() {
+        val order = Order(
+            id = 1L,
+            orderNo = "20240101120000001",
+            userId = 1L,
+            sellerId = 100L,
+            totalAmount = BigDecimal("100.00"),
+            status = 1
+        )
+        every { orderRepository.findById(1L) } returns Optional.of(order)
+
+        val exception = assertThrows<BusinessException> {
+            orderService.requestRefund(1L, 1L, com.live.commerce.mall.dto.RefundRequest("   "))
+        }
+        assertEquals(ErrorCode.REFUND_REASON_REQUIRED, exception.code)
+    }
+
+    @Test
+    fun `should return sold orders with paid or refund requested status only`() {
+        val pending = Order(
+            id = 1L,
+            orderNo = "20240101120000001",
+            userId = 10L,
+            sellerId = 100L,
+            totalAmount = BigDecimal("10.00"),
+            status = 0
+        )
+        val paid = Order(
+            id = 2L,
+            orderNo = "20240101120000002",
+            userId = 11L,
+            sellerId = 100L,
+            totalAmount = BigDecimal("20.00"),
+            status = 1
+        )
+        val refundRequested = Order(
+            id = 3L,
+            orderNo = "20240101120000003",
+            userId = 12L,
+            sellerId = 100L,
+            totalAmount = BigDecimal("30.00"),
+            status = 3
+        )
+        every { orderRepository.findBySellerId(100L) } returns listOf(pending, paid, refundRequested)
+        every { orderItemRepository.findByOrderId(any()) } returns emptyList()
+
+        val result = orderService.getSoldOrders(100L)
+
+        assertEquals(2, result.size)
+        assertTrue(result.all { it.status == 1 || it.status == 3 })
+        assertFalse(result.any { it.status == 0 })
+    }
+
+    @Test
+    fun `should auto cancel expired orders and restore stock`() {
+        val expired = Order(
+            id = 1L,
+            orderNo = "20240101120000001",
+            userId = 1L,
+            sellerId = 100L,
+            totalAmount = BigDecimal("100.00"),
+            status = 0,
+            expireAt = LocalDateTime.now().minusMinutes(1)
+        )
+        val items = listOf(
+            OrderItem(
+                id = 1L,
+                orderId = 1L,
+                productId = 7L,
+                productName = "Expired Product",
+                price = BigDecimal("100.00"),
+                quantity = 2
+            )
+        )
+        every { orderRepository.findByStatusAndExpireAtBefore(eq(0), any()) } returns listOf(expired)
+        every { orderItemRepository.findByOrderId(1L) } returns items
+        every { productRepository.restoreStock(7L, 2) } returns 1
+        every { orderRepository.save(any()) } answers { firstArg() }
+
+        orderService.autoCancelExpiredOrders()
+
+        verify { productRepository.restoreStock(7L, 2) }
+        verify { orderRepository.save(match { it.id == 1L && it.status == 2 }) }
+    }
+
+    @Test
+    fun `should fail pay order when expired and cancel it`() {
+        val expired = Order(
+            id = 1L,
+            orderNo = "20240101120000001",
+            userId = 1L,
+            sellerId = 100L,
+            totalAmount = BigDecimal("100.00"),
+            status = 0,
+            expireAt = LocalDateTime.now().minusSeconds(5)
+        )
+        val items = listOf(
+            OrderItem(
+                id = 1L,
+                orderId = 1L,
+                productId = 9L,
+                productName = "Expired Product",
+                price = BigDecimal("100.00"),
+                quantity = 1
+            )
+        )
+        every { orderRepository.findById(1L) } returns Optional.of(expired)
+        every { orderItemRepository.findByOrderId(1L) } returns items
+        every { productRepository.restoreStock(9L, 1) } returns 1
+        every { orderRepository.save(any()) } answers { firstArg() }
+
+        val exception = assertThrows<BusinessException> {
+            orderService.payOrder(1L, 1L)
+        }
+
+        assertEquals(ErrorCode.ORDER_EXPIRED, exception.code)
+        verify { orderRepository.save(match { it.id == 1L && it.status == 2 }) }
     }
 }

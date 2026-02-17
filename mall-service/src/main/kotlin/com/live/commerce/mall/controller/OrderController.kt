@@ -4,6 +4,7 @@ import cn.dev33.satoken.stp.StpUtil
 import com.live.commerce.common.dto.Result
 import com.live.commerce.mall.dto.CreateOrderRequest
 import com.live.commerce.mall.dto.OrderDTO
+import com.live.commerce.mall.dto.RefundRequest
 import com.live.commerce.mall.service.OrderService
 import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.*
@@ -35,6 +36,13 @@ class OrderController(
         return Result.ok(orders)
     }
 
+    @GetMapping("/sold")
+    fun getSoldOrders(): Result<List<OrderDTO>> {
+        val userId = StpUtil.getLoginIdAsLong()
+        val orders = orderService.getSoldOrders(userId)
+        return Result.ok(orders)
+    }
+
     @PutMapping("/{id}/pay")
     fun payOrder(@PathVariable id: Long): Result<OrderDTO> {
         val userId = StpUtil.getLoginIdAsLong()
@@ -46,6 +54,16 @@ class OrderController(
     fun cancelOrder(@PathVariable id: Long): Result<OrderDTO> {
         val userId = StpUtil.getLoginIdAsLong()
         val order = orderService.cancelOrder(id, userId)
+        return Result.ok(order)
+    }
+
+    @PutMapping("/{id}/refund-request")
+    fun requestRefund(
+        @PathVariable id: Long,
+        @Valid @RequestBody request: RefundRequest
+    ): Result<OrderDTO> {
+        val userId = StpUtil.getLoginIdAsLong()
+        val order = orderService.requestRefund(id, userId, request)
         return Result.ok(order)
     }
 }

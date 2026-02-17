@@ -28,7 +28,8 @@ export default {
         <div class="modal-overlay product-detail-modal" :class="{ show: visible }" @click.self="$emit('close')">
             <div class="modal">
                 <div class="pd-header">
-                    <div class="pd-image">&#128230;</div>
+                    <img v-if="product?.imageUrl" class="pd-image-real" :src="product.imageUrl" />
+                    <div v-else class="pd-image">&#128230;</div>
                     <div class="pd-info">
                         <h4>{{ product?.name || product?.productName || '-' }}</h4>
                         <div class="pd-price">&yen;{{ formatPrice(product?.price) }}</div>

@@ -9,49 +9,29 @@ export default {
             type: Array,
             default: () => []
         },
-        roomFilter: {
-            type: [Number, null],
-            default: null
+        roomKeyword: {
+            type: String,
+            default: ''
         },
         statusText: {
             type: Array,
             default: () => []
         }
     },
-    emits: ['set-room-filter', 'navigate-room'],
+    emits: ['update-room-keyword', 'search', 'navigate-room'],
     template: `
         <div class="rooms-page">
             <div class="rooms-header">
                 <h2>直播间大厅</h2>
                 <div class="filter-group">
-                    <button
-                        class="filter-btn"
-                        :class="{ active: roomFilter === null }"
-                        @click="$emit('set-room-filter', null)"
-                    >
-                        全部
-                    </button>
-                    <button
-                        class="filter-btn"
-                        :class="{ active: roomFilter === 1 }"
-                        @click="$emit('set-room-filter', 1)"
-                    >
-                        直播中
-                    </button>
-                    <button
-                        class="filter-btn"
-                        :class="{ active: roomFilter === 0 }"
-                        @click="$emit('set-room-filter', 0)"
-                    >
-                        未开播
-                    </button>
-                    <button
-                        class="filter-btn"
-                        :class="{ active: roomFilter === 2 }"
-                        @click="$emit('set-room-filter', 2)"
-                    >
-                        已结束
-                    </button>
+                    <input
+                        class="form-input"
+                        :value="roomKeyword"
+                        placeholder="搜索直播间标题"
+                        @input="$emit('update-room-keyword', $event.target.value)"
+                        @keydown.enter="$emit('search')"
+                    />
+                    <button class="btn btn-primary btn-sm" @click="$emit('search')">搜索</button>
                 </div>
             </div>
 
@@ -69,11 +49,10 @@ export default {
                     class="room-card"
                     @click="$emit('navigate-room', room.id)"
                 >
+                    <img v-if="room.coverUrl" :src="room.coverUrl" class="room-cover" />
                     <div class="card-title">{{ room.title }}</div>
                     <div class="card-meta">
-                        <span class="status-badge" :class="'status-' + room.status">
-                            {{ statusText[room.status] || '未知' }}
-                        </span>
+                        <span class="status-badge status-1">直播中</span>
                         <span>ID: {{ room.id }}</span>
                         <span v-if="room.anchorName">主播: {{ room.anchorName }}</span>
                     </div>

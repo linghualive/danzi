@@ -28,6 +28,8 @@ class SaTokenGatewayConfig {
                 "/api/live/room/list",
                 "/api/live/callback/**",
                 "/api/live/room/*/messages",
+                "/api/base/media/public/**",
+                "/api/product/media/public/**",
                 "/ws/**"
             )
             .setBeforeAuth {

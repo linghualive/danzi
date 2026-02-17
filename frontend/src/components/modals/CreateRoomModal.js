@@ -9,18 +9,21 @@ export default {
             type: String,
             default: ''
         },
-        cover: {
-            type: String,
-            default: ''
+        coverFileId: {
+            type: [Number, null],
+            default: null
         }
     },
-    emits: ['close', 'update-title', 'update-cover', 'create'],
+    emits: ['close', 'update-title', 'upload-cover', 'create'],
     methods: {
         handleInput(event) {
             this.$emit('update-title', event.target.value.trim());
         },
-        handleCoverInput(event) {
-            this.$emit('update-cover', event.target.value.trim());
+        handleCoverFile(event) {
+            const file = event.target.files && event.target.files[0];
+            if (file) {
+                this.$emit('upload-cover', file);
+            }
         }
     },
     template: `
@@ -37,13 +40,14 @@ export default {
                     />
                 </div>
                 <div class="form-group">
-                    <label>封面图片 URL（可选）</label>
+                    <label>封面图片（可选）</label>
                     <input
-                        class="form-input"
-                        :value="cover"
-                        placeholder="输入封面图片地址"
-                        @input="handleCoverInput"
+                        type="file"
+                        @change="handleCoverFile"
                     />
+                    <div v-if="coverFileId" style="font-size:12px;color:#666;margin-top:6px;">
+                        已上传文件ID: {{ coverFileId }}
+                    </div>
                 </div>
                 <div class="modal-actions">
                     <button class="btn btn-outline" @click="$emit('close')">取消</button>

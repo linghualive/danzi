@@ -8,21 +8,40 @@ import java.time.LocalDateTime
 data class OrderDTO(
     val id: Long,
     val orderNo: String,
-    val userId: Long,
+    val buyerId: Long,
+    val buyerName: String?,
+    val sellerId: Long,
+    val sellerName: String?,
     val totalAmount: BigDecimal,
     val status: Int,
     val items: List<OrderItemDTO>,
+    val expireAt: LocalDateTime,
+    val paidAt: LocalDateTime?,
+    val refundReason: String?,
+    val refundRequestedAt: LocalDateTime?,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime
 ) {
     companion object {
-        fun from(order: Order, items: List<OrderItem>): OrderDTO = OrderDTO(
+        fun from(
+            order: Order,
+            items: List<OrderItem>,
+            buyerName: String?,
+            sellerName: String?
+        ): OrderDTO = OrderDTO(
             id = order.id,
             orderNo = order.orderNo,
-            userId = order.userId,
+            buyerId = order.userId,
+            buyerName = buyerName,
+            sellerId = order.sellerId,
+            sellerName = sellerName,
             totalAmount = order.totalAmount,
             status = order.status,
             items = items.map { OrderItemDTO.from(it) },
+            expireAt = order.expireAt,
+            paidAt = order.paidAt,
+            refundReason = order.refundReason,
+            refundRequestedAt = order.refundRequestedAt,
             createdAt = order.createdAt,
             updatedAt = order.updatedAt
         )

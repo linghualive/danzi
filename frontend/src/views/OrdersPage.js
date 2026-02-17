@@ -28,6 +28,8 @@ export default {
                 :order-status-text="store.orderStatusText"
                 @pay-order="store.payOrder"
                 @cancel-order="store.cancelOrder"
+                @request-refund="store.requestRefund"
+                @contact-user="store.contactFromOrder"
             />
         </div>
     `

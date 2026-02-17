@@ -1,5 +1,6 @@
 package com.live.commerce.mall.controller
 
+import cn.dev33.satoken.stp.StpUtil
 import com.live.commerce.common.dto.PageResult
 import com.live.commerce.common.dto.Result
 import com.live.commerce.mall.dto.CreateProductRequest
@@ -17,7 +18,8 @@ class ProductController(
 
     @PostMapping
     fun createProduct(@Valid @RequestBody request: CreateProductRequest): Result<ProductDTO> {
-        val product = productService.createProduct(request)
+        val operatorId = StpUtil.getLoginIdAsLong()
+        val product = productService.createProduct(operatorId, request)
         return Result.ok(product)
     }
 
@@ -32,13 +34,15 @@ class ProductController(
         @PathVariable id: Long,
         @Valid @RequestBody request: UpdateProductRequest
     ): Result<ProductDTO> {
-        val product = productService.updateProduct(id, request)
+        val operatorId = StpUtil.getLoginIdAsLong()
+        val product = productService.updateProduct(operatorId, id, request)
         return Result.ok(product)
     }
 
     @DeleteMapping("/{id}")
     fun deleteProduct(@PathVariable id: Long): Result<Nothing> {
-        productService.deleteProduct(id)
+        val operatorId = StpUtil.getLoginIdAsLong()
+        productService.deleteProduct(operatorId, id)
         return Result.ok()
     }
 

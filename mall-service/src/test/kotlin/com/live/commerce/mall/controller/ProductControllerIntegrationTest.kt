@@ -1,5 +1,6 @@
 package com.live.commerce.mall.controller
 
+import cn.dev33.satoken.stp.StpUtil
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.live.commerce.common.exception.ErrorCode
 import com.live.commerce.mall.TestcontainersConfig
@@ -32,9 +33,13 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
     @Autowired
     lateinit var productRepository: ProductRepository
 
+    private var token: String = ""
+
     @BeforeEach
     fun setUp() {
         productRepository.deleteAll()
+        StpUtil.login(1L)
+        token = StpUtil.getTokenValue()
     }
 
     @Test
@@ -44,12 +49,12 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
             description = "A test product",
             price = BigDecimal("99.99"),
             stock = 100,
-            roomId = 1L,
-            image = "http://example.com/image.png"
+            roomId = 1L
         )
 
         mockMvc.perform(
             post("/api/product")
+                .header("satoken", token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         )
@@ -73,6 +78,7 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
 
         val createResult = mockMvc.perform(
             post("/api/product")
+                .header("satoken", token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         )
@@ -110,6 +116,7 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
 
         val createResult = mockMvc.perform(
             post("/api/product")
+                .header("satoken", token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest))
         )
@@ -129,6 +136,7 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
 
         mockMvc.perform(
             put("/api/product/$productId")
+                .header("satoken", token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(updateRequest))
         )
@@ -151,6 +159,7 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
 
         val createResult = mockMvc.perform(
             post("/api/product")
+                .header("satoken", token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest))
         )
@@ -161,7 +170,7 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
         val productId = responseJson["data"]["id"].asLong()
 
         // Then delete the product
-        mockMvc.perform(delete("/api/product/$productId"))
+        mockMvc.perform(delete("/api/product/$productId").header("satoken", token))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.code").value(200))
 
@@ -182,6 +191,7 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
             )
             mockMvc.perform(
                 post("/api/product")
+                    .header("satoken", token)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request))
             )
@@ -208,6 +218,7 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
         products.forEach { request ->
             mockMvc.perform(
                 post("/api/product")
+                    .header("satoken", token)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request))
             )
@@ -233,6 +244,7 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
         products.forEach { request ->
             mockMvc.perform(
                 post("/api/product")
+                    .header("satoken", token)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request))
             )

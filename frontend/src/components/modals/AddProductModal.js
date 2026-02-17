@@ -14,10 +14,16 @@ export default {
             default: false
         }
     },
-    emits: ['close', 'update-field', 'create'],
+    emits: ['close', 'update-field', 'upload-image', 'create'],
     methods: {
         handleInput(field, event) {
             this.$emit('update-field', { field, value: event.target.value });
+        },
+        handleImage(event) {
+            const file = event.target.files && event.target.files[0];
+            if (file) {
+                this.$emit('upload-image', file);
+            }
         }
     },
     template: `
@@ -65,6 +71,13 @@ export default {
                         placeholder="输入库存数量"
                         @input="handleInput('stock', $event)"
                     />
+                </div>
+                <div class="form-group">
+                    <label>商品图片（可选）</label>
+                    <input type="file" @change="handleImage" />
+                    <div v-if="product.imageFileId" style="font-size:12px;color:#666;margin-top:6px;">
+                        已上传文件ID: {{ product.imageFileId }}
+                    </div>
                 </div>
                 <div class="modal-actions">
                     <button class="btn btn-outline" @click="$emit('close')">取消</button>

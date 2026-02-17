@@ -65,7 +65,10 @@ export default {
             <room-view
                 :current-room="store.currentRoom"
                 :is-room-owner="store.isRoomOwner"
+                :current-user-id="store.currentUserId"
+                :is-admin="store.isAdmin"
                 :room-owner-info="store.roomOwnerInfo"
+                :owner-followed-by-me="store.ownerFollowedByMe"
                 :status-text="store.statusText"
                 :products-expanded="store.productsExpanded"
                 :chat-messages="store.chatMessages"
@@ -98,6 +101,8 @@ export default {
                 @toggle-emoji-picker="store.toggleEmojiPicker"
                 @set-emoji-category="store.setEmojiCategory"
                 @insert-emoji="store.insertEmoji"
+                @follow-owner="store.toggleFollowOwner"
+                @contact-owner="store.contactRoomOwner"
             />
         </div>
     `

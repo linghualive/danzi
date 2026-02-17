@@ -13,6 +13,9 @@ class Product(
 
     var roomId: Long? = null,
 
+    @Column(nullable = false)
+    var sellerId: Long = 0,
+
     var name: String = "",
 
     var description: String? = null,
@@ -22,6 +25,8 @@ class Product(
     var stock: Int = 0,
 
     var image: String? = null,
+
+    var imageFileId: Long? = null,
 
     var status: Int = 1, // 0-下架 1-上架
 

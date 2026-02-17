@@ -7,13 +7,13 @@ import com.live.commerce.mall.dto.UpdateProductRequest
 
 interface ProductService {
 
-    fun createProduct(request: CreateProductRequest): ProductDTO
+    fun createProduct(operatorId: Long, request: CreateProductRequest): ProductDTO
 
     fun getProduct(id: Long): ProductDTO
 
-    fun updateProduct(id: Long, request: UpdateProductRequest): ProductDTO
+    fun updateProduct(operatorId: Long, id: Long, request: UpdateProductRequest): ProductDTO
 
-    fun deleteProduct(id: Long)
+    fun deleteProduct(operatorId: Long, id: Long)
 
     fun listProducts(page: Int, size: Int, keyword: String?): PageResult<ProductDTO>
 

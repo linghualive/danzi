@@ -56,7 +56,7 @@ class LiveRoomControllerIntegrationTest : TestcontainersConfig() {
 
     @Test
     fun `should create room successfully`() {
-        val request = CreateRoomRequest("My Live Room", "cover.jpg")
+        val request = CreateRoomRequest("My Live Room")
         mockMvc.perform(
             post("/api/live/room")
                 .header("satoken", token)

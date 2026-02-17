@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 interface ProductRepository : JpaRepository<Product, Long> {
 
     fun findByRoomId(roomId: Long): List<Product>
+    fun findByRoomIdAndStatus(roomId: Long, status: Int): List<Product>
 
     fun findByNameContaining(name: String, pageable: Pageable): Page<Product>
 

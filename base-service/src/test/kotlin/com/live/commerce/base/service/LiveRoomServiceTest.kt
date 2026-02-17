@@ -27,8 +27,9 @@ class LiveRoomServiceTest {
 
     @Test
     fun `should create room with generated stream key`() {
-        val request = CreateRoomRequest("Test Room", "cover.jpg")
+        val request = CreateRoomRequest("Test Room")
         val roomSlot = slot<LiveRoom>()
+        every { liveRoomRepository.findFirstByUserId(100L) } returns null
         every { liveRoomRepository.save(capture(roomSlot)) } answers {
             roomSlot.captured.apply { id = 1L }
         }
@@ -41,6 +42,31 @@ class LiveRoomServiceTest {
         assertTrue(result.streamKey.isNotBlank())
         assertTrue(result.pushUrl.contains(result.streamKey))
         assertTrue(result.pullUrl.contains(result.streamKey))
+    }
+
+    @Test
+    fun `should reuse existing room for same user`() {
+        val existing = LiveRoom(
+            id = 10L,
+            userId = 100L,
+            title = "Old Title",
+            streamKey = "fixed-key",
+            coverFileId = null
+        )
+        every { liveRoomRepository.findFirstByUserId(100L) } returns existing
+        every { liveRoomRepository.save(any()) } answers { firstArg() }
+
+        val result = liveRoomService.createRoom(100L, CreateRoomRequest("New Title", coverFileId = 55L))
+
+        assertEquals(10L, result.id)
+        assertEquals("New Title", result.title)
+        assertEquals("fixed-key", result.streamKey)
+        assertEquals("/api/base/media/public/55", result.coverUrl)
+        verify {
+            liveRoomRepository.save(match {
+                it.id == 10L && it.title == "New Title" && it.coverFileId == 55L
+            })
+        }
     }
 
     @Test
@@ -65,11 +91,11 @@ class LiveRoomServiceTest {
     @Test
     fun `should list rooms with pagination`() {
         val rooms = listOf(
-            LiveRoom(id = 1L, userId = 100L, title = "Room 1", streamKey = "key1"),
+            LiveRoom(id = 1L, userId = 100L, title = "Room 1", streamKey = "key1", status = 1),
             LiveRoom(id = 2L, userId = 101L, title = "Room 2", streamKey = "key2")
         )
         val pageable = PageRequest.of(0, 10)
-        every { liveRoomRepository.findAll(pageable) } returns PageImpl(rooms, pageable, 2)
+        every { liveRoomRepository.searchLiveRooms(null, pageable) } returns PageImpl(rooms, pageable, 2)
 
         val result = liveRoomService.listRooms(0, 10, null)
 
@@ -104,6 +130,15 @@ class LiveRoomServiceTest {
 
         val exception = assertThrows<BusinessException> { liveRoomService.startLive(1L, 100L) }
         assertEquals(ErrorCode.ROOM_STATUS_ERROR, exception.code)
+    }
+
+    @Test
+    fun `should reject start when room is closed by admin`() {
+        val room = LiveRoom(id = 1L, userId = 100L, title = "Test Room", streamKey = "abc123", status = 3)
+        every { liveRoomRepository.findById(1L) } returns Optional.of(room)
+
+        val exception = assertThrows<BusinessException> { liveRoomService.startLive(1L, 100L) }
+        assertEquals(ErrorCode.ROOM_CLOSED_BY_ADMIN, exception.code)
     }
 
     @Test

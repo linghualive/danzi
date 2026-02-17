@@ -2,6 +2,7 @@ package com.live.commerce.mall.service
 
 import com.live.commerce.mall.dto.CreateOrderRequest
 import com.live.commerce.mall.dto.OrderDTO
+import com.live.commerce.mall.dto.RefundRequest
 
 interface OrderService {
 
@@ -13,7 +14,13 @@ interface OrderService {
 
     fun getUserOrders(userId: Long): List<OrderDTO>
 
+    fun getSoldOrders(userId: Long): List<OrderDTO>
+
     fun payOrder(orderId: Long, userId: Long): OrderDTO
 
     fun cancelOrder(orderId: Long, userId: Long): OrderDTO
+
+    fun requestRefund(orderId: Long, userId: Long, request: RefundRequest): OrderDTO
+
+    fun autoCancelExpiredOrders()
 }

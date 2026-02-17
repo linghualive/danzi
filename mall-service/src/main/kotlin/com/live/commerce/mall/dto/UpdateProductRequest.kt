@@ -7,6 +7,6 @@ data class UpdateProductRequest(
     val description: String? = null,
     val price: BigDecimal? = null,
     val stock: Int? = null,
-    val image: String? = null,
+    val imageFileId: Long? = null,
     val status: Int? = null
 )

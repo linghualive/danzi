@@ -34,11 +34,31 @@ export default {
             router.push('/orders');
         };
 
+        const gotoSold = () => {
+            router.push('/sold-orders');
+        };
+
+        const gotoProfile = () => {
+            router.push('/profile');
+        };
+
+        const gotoMessages = () => {
+            router.push('/messages');
+        };
+
+        const gotoAdmin = () => {
+            router.push('/admin');
+        };
+
         return {
             store,
             logout,
             gotoRooms,
-            gotoOrders
+            gotoOrders,
+            gotoSold,
+            gotoProfile,
+            gotoMessages,
+            gotoAdmin
         };
     },
     template: `
@@ -48,8 +68,13 @@ export default {
             <app-navbar
                 v-if="store.currentUser"
                 :display-nickname="store.displayNickname"
+                :is-admin="store.isAdmin"
                 @navigate-rooms="gotoRooms"
                 @navigate-orders="gotoOrders"
+                @navigate-sold="gotoSold"
+                @navigate-profile="gotoProfile"
+                @navigate-messages="gotoMessages"
+                @navigate-admin="gotoAdmin"
                 @open-create-room="store.openCreateRoomModal"
                 @logout="logout"
             />
@@ -59,10 +84,10 @@ export default {
             <create-room-modal
                 :visible="store.createRoomModalVisible"
                 :title="store.newRoomTitle"
-                :cover="store.newRoomCover"
+                :cover-file-id="store.newRoomCoverFileId"
                 @close="store.createRoomModalVisible = false"
                 @update-title="store.newRoomTitle = $event"
-                @update-cover="store.newRoomCover = $event"
+                @upload-cover="store.uploadRoomCover"
                 @create="store.doCreateRoom"
             />
 
@@ -72,6 +97,7 @@ export default {
                 :editing="!!store.editingProductId"
                 @close="store.addProductModalVisible = false"
                 @update-field="store.updateNewProductField"
+                @upload-image="store.uploadProductImage"
                 @create="store.doSaveProduct"
             />
 

@@ -22,5 +22,5 @@ data class CreateProductRequest(
 
     val roomId: Long? = null,
 
-    val image: String? = null
+    val imageFileId: Long? = null
 )

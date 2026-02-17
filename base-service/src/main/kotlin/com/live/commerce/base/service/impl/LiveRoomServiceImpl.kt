@@ -21,10 +21,17 @@ class LiveRoomServiceImpl(
 
     @Transactional
     override fun createRoom(userId: Long, request: CreateRoomRequest): LiveRoomDTO {
+        liveRoomRepository.findFirstByUserId(userId)?.let { existing ->
+            existing.title = request.title
+            existing.coverFileId = request.coverFileId
+            existing.updatedAt = LocalDateTime.now()
+            return toDTO(liveRoomRepository.save(existing))
+        }
+
         val room = LiveRoom(
             userId = userId,
             title = request.title,
-            cover = request.cover,
+            coverFileId = request.coverFileId,
             streamKey = generateStreamKey()
         )
         val saved = liveRoomRepository.save(room)
@@ -37,18 +44,13 @@ class LiveRoomServiceImpl(
         return toDTO(room)
     }
 
-    override fun listRooms(page: Int, size: Int, status: Int?): PageResult<LiveRoomDTO> {
+    override fun listRooms(page: Int, size: Int, keyword: String?): PageResult<LiveRoomDTO> {
         val pageable = PageRequest.of(page, size)
-        val pageResult = if (status != null) {
-            liveRoomRepository.findAll(pageable)
-        } else {
-            liveRoomRepository.findAll(pageable)
-        }
+        val normalizedKeyword = keyword?.trim()?.ifBlank { null }
+        val pageResult = liveRoomRepository.searchLiveRooms(normalizedKeyword, pageable)
+
         return PageResult(
-            content = pageResult.content.let { rooms ->
-                if (status != null) rooms.filter { it.status == status }.map { toDTO(it) }
-                else rooms.map { toDTO(it) }
-            },
+            content = pageResult.content.map { toDTO(it) },
             page = pageResult.number,
             size = pageResult.size,
             totalElements = pageResult.totalElements,
@@ -66,6 +68,9 @@ class LiveRoomServiceImpl(
         }
 
         if (room.status != 0) {
+            if (room.status == 3) {
+                throw BusinessException(ErrorCode.ROOM_CLOSED_BY_ADMIN)
+            }
             throw BusinessException(ErrorCode.ROOM_STATUS_ERROR, "只有未开播的直播间可以开播")
         }
 
@@ -73,6 +78,18 @@ class LiveRoomServiceImpl(
         room.updatedAt = LocalDateTime.now()
         val saved = liveRoomRepository.save(room)
         return toDTO(saved)
+    }
+
+    @Transactional
+    override fun adminCloseRoom(roomId: Long, adminId: Long, reason: String): LiveRoomDTO {
+        val room = liveRoomRepository.findById(roomId)
+            .orElseThrow { BusinessException(ErrorCode.ROOM_NOT_FOUND) }
+        room.status = 3
+        room.closedBy = adminId
+        room.closedReason = reason.ifBlank { "管理员关闭直播间" }
+        room.closedAt = LocalDateTime.now()
+        room.updatedAt = LocalDateTime.now()
+        return toDTO(liveRoomRepository.save(room))
     }
 
     @Transactional
@@ -100,11 +117,12 @@ class LiveRoomServiceImpl(
         id = room.id,
         userId = room.userId,
         title = room.title,
-        cover = room.cover,
+        coverUrl = room.coverFileId?.let { "/api/base/media/public/$it" } ?: room.cover,
         status = room.status,
         streamKey = room.streamKey,
         pushUrl = "rtmp://localhost:1935/live/${room.streamKey}",
         pullUrl = "http://localhost:8080/live/${room.streamKey}.flv",
+        closedReason = room.closedReason,
         createdAt = room.createdAt
     )
 }

@@ -30,9 +30,9 @@ class LiveRoomController(
     fun listRooms(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int,
-        @RequestParam(required = false) status: Int?
+        @RequestParam(required = false) keyword: String?
     ): Result<PageResult<LiveRoomDTO>> {
-        return Result.ok(data = liveRoomService.listRooms(page, size, status))
+        return Result.ok(data = liveRoomService.listRooms(page, size, keyword))
     }
 
     @PutMapping("/{id}/start")

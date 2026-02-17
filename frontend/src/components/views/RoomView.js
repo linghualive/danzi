@@ -30,9 +30,21 @@ export default {
             type: Boolean,
             default: false
         },
+        currentUserId: {
+            type: Number,
+            default: 0
+        },
+        isAdmin: {
+            type: Boolean,
+            default: false
+        },
         roomOwnerInfo: {
             type: Object,
             default: null
+        },
+        ownerFollowedByMe: {
+            type: Boolean,
+            default: false
         },
         statusText: {
             type: Array,
@@ -106,7 +118,9 @@ export default {
         'edit-product',
         'toggle-emoji-picker',
         'set-emoji-category',
-        'insert-emoji'
+        'insert-emoji',
+        'follow-owner',
+        'contact-owner'
     ],
     data() {
         return {
@@ -211,6 +225,9 @@ export default {
                 this.controlsVisible = true;
                 if (this.controlsTimer) clearTimeout(this.controlsTimer);
             }
+        },
+        canManageProduct(product) {
+            return this.isAdmin || this.isRoomOwner || this.currentUserId === (product?.sellerId || 0);
         }
     },
     template: `
@@ -225,6 +242,18 @@ export default {
                     <span v-if="roomOwnerInfo" class="owner-tag">
                         \u4E3B\u64AD: <b>{{ roomOwnerInfo.nickname || roomOwnerInfo.username || '\u672A\u77E5' }}</b>
                     </span>
+                    <button
+                        v-if="roomOwnerInfo && !isRoomOwner"
+                        class="btn btn-outline btn-sm"
+                        @click="$emit('follow-owner')"
+                    >
+                        {{ ownerFollowedByMe ? '已关注' : '关注' }}
+                    </button>
+                    <button
+                        v-if="roomOwnerInfo && !isRoomOwner"
+                        class="btn btn-outline btn-sm"
+                        @click="$emit('contact-owner')"
+                    >私信</button>
                     <span>
                         <button
                             v-if="isRoomOwner && currentRoom?.status === 0"
@@ -302,15 +331,16 @@ export default {
                                     v-for="(product, index) in roomProducts"
                                     :key="product.id || index"
                                 >
-                                    <div class="product-card-thumb">&#128230;</div>
+                                    <img v-if="product.imageUrl" class="product-card-thumb-img" :src="product.imageUrl" />
+                                    <div v-else class="product-card-thumb">&#128230;</div>
                                     <div class="product-card-name">{{ product.name || product.productName || '-' }}</div>
                                     <div class="product-card-price">&yen;{{ formatPrice(product.price) }}</div>
                                     <div class="product-card-stock">\u5E93\u5B58: {{ product.stock ?? '-' }}</div>
                                     <div class="product-card-actions">
                                         <button class="btn btn-outline btn-sm" @click="$emit('show-product-detail', product)">\u8BE6\u60C5</button>
-                                        <button class="btn btn-primary btn-sm" @click="$emit('quick-buy', product.id)">\u8D2D\u4E70</button>
-                                        <button v-if="isRoomOwner" class="btn btn-outline btn-sm" @click="$emit('edit-product', product)">\u7F16\u8F91</button>
-                                        <button v-if="isRoomOwner" class="btn btn-danger btn-sm" @click="$emit('delete-product', product.id)">\u5220\u9664</button>
+                                        <button v-if="!canManageProduct(product)" class="btn btn-primary btn-sm" @click="$emit('quick-buy', product.id)">\u8D2D\u4E70</button>
+                                        <button v-if="canManageProduct(product)" class="btn btn-outline btn-sm" @click="$emit('edit-product', product)">\u7F16\u8F91</button>
+                                        <button v-if="canManageProduct(product)" class="btn btn-danger btn-sm" @click="$emit('delete-product', product.id)">\u5220\u9664</button>
                                     </div>
                                 </div>
                             </template>

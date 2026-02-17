@@ -3,6 +3,7 @@ package com.live.commerce.common.exception
 import com.live.commerce.common.dto.Result
 import org.slf4j.LoggerFactory
 import org.springframework.validation.BindException
+import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 
@@ -21,6 +22,13 @@ class GlobalExceptionHandler {
     fun handleBindException(e: BindException): Result<Nothing> {
         val message = e.fieldErrors.joinToString("; ") { "${it.field}: ${it.defaultMessage}" }
         log.warn("Validation exception: {}", message)
+        return Result.error(ErrorCode.PARAM_ERROR, message)
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException::class)
+    fun handleMethodArgumentNotValidException(e: MethodArgumentNotValidException): Result<Nothing> {
+        val message = e.bindingResult.fieldErrors.joinToString("; ") { "${it.field}: ${it.defaultMessage}" }
+        log.warn("Method validation exception: {}", message)
         return Result.error(ErrorCode.PARAM_ERROR, message)
     }
 

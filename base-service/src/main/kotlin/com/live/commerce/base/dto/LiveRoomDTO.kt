@@ -6,10 +6,11 @@ data class LiveRoomDTO(
     val id: Long,
     val userId: Long,
     val title: String,
-    val cover: String?,
+    val coverUrl: String?,
     val status: Int,
     val streamKey: String,
     val pushUrl: String,
     val pullUrl: String,
+    val closedReason: String?,
     val createdAt: LocalDateTime
 )

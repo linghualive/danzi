@@ -15,6 +15,14 @@ spring:
           uri: http://localhost:9001
           predicates:
             - Path=/api/live/**
+        - id: base-service-admin
+          uri: http://localhost:9001
+          predicates:
+            - Path=/api/admin/**
+        - id: base-service-media
+          uri: http://localhost:9001
+          predicates:
+            - Path=/api/base/media/**
         - id: mall-service-product
           uri: http://localhost:9002
           predicates:
