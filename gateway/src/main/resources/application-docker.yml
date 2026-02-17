@@ -1,0 +1,28 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: base-service-user
+          uri: http://base-service:9001
+          predicates:
+            - Path=/api/user/**
+        - id: base-service-live
+          uri: http://base-service:9001
+          predicates:
+            - Path=/api/live/**
+        - id: mall-service-product
+          uri: http://mall-service:9002
+          predicates:
+            - Path=/api/product/**
+        - id: mall-service-order
+          uri: http://mall-service:9002
+          predicates:
+            - Path=/api/order/**
+        - id: websocket
+          uri: ws://base-service:9001
+          predicates:
+            - Path=/ws/**
+  data:
+    redis:
+      host: redis
+      port: 6379

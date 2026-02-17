@@ -1,0 +1,139 @@
+services:
+  # ==================== Infrastructure ====================
+
+  mysql:
+    image: mysql:8.0
+    container_name: lc-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - ./sql/init-docker.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql-data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --lower-case-table-names=1
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root123}"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: lc-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # ==================== Java Services ====================
+
+  base-service:
+    image: live-commerce/base-service:latest
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base-service
+    container_name: lc-base-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+      JAVA_OPTS: ${BASE_JAVA_OPTS:--Xms256m -Xmx512m}
+    ports:
+      - "9001:9001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mall-service:
+    image: live-commerce/mall-service:latest
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: mall-service
+    container_name: lc-mall-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+      JAVA_OPTS: ${MALL_JAVA_OPTS:--Xms256m -Xmx512m}
+    ports:
+      - "9002:9002"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      base-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  gateway:
+    image: live-commerce/gateway:latest
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: gateway
+    container_name: lc-gateway
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JAVA_OPTS: ${GATEWAY_JAVA_OPTS:--Xms128m -Xmx256m}
+    ports:
+      - "${GATEWAY_PORT:-9000}:9000"
+    depends_on:
+      base-service:
+        condition: service_healthy
+      mall-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ==================== SRS Streaming ====================
+
+  srs:
+    image: ossrs/srs:6
+    container_name: lc-srs
+    ports:
+      - "${SRS_RTMP_PORT:-1935}:1935"
+      - "${SRS_HTTP_PORT:-8080}:8080"
+      - "${SRS_API_PORT:-1985}:1985"
+    volumes:
+      - ./srs/srs-docker.conf:/usr/local/srs/conf/srs.conf
+    depends_on:
+      base-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ==================== Frontend ====================
+
+  frontend:
+    image: nginx:alpine
+    container_name: lc-frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  redis-data:
