@@ -14,6 +14,7 @@ const store = useAppStore(pinia);
 store.init();
 
 const router = createAppRouter(store);
+store.setRouter(router);
 app.use(router);
 
 app.mount('#app');

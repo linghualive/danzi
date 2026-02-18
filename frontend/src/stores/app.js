@@ -103,7 +103,9 @@ export const useAppStore = defineStore('app', {
         adminUsers: [],
         adminRooms: [],
 
-        toasts: []
+        toasts: [],
+
+        _router: null
     }),
 
     getters: {
@@ -136,6 +138,10 @@ export const useAppStore = defineStore('app', {
     },
 
     actions: {
+        setRouter(router) {
+            this._router = router;
+        },
+
         init() {
             if (this.initialized) {
                 return;
@@ -1086,8 +1092,12 @@ export const useAppStore = defineStore('app', {
         },
 
         contactFromOrder(targetUserId) {
-            if (!targetUserId) return;
-            window.location.hash = `#/messages?target=${targetUserId}`;
+            if (!targetUserId && targetUserId !== 0) return;
+            if (this._router) {
+                this._router.push({ path: '/messages', query: { target: targetUserId } });
+            } else {
+                window.location.hash = `#/messages?target=${targetUserId}`;
+            }
         },
 
         async copyText(value) {
