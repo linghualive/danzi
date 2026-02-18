@@ -1,4 +1,6 @@
 spring:
+  codec:
+    max-in-memory-size: 20MB
   cloud:
     gateway:
       routes:
@@ -10,6 +12,14 @@ spring:
           uri: http://base-service:9001
           predicates:
             - Path=/api/live/**
+        - id: base-service-admin
+          uri: http://base-service:9001
+          predicates:
+            - Path=/api/admin/**
+        - id: base-service-media
+          uri: http://base-service:9001
+          predicates:
+            - Path=/api/base/media/**
         - id: mall-service-product
           uri: http://mall-service:9002
           predicates:

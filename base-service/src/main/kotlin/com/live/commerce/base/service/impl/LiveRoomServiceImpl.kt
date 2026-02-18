@@ -24,6 +24,12 @@ class LiveRoomServiceImpl(
         liveRoomRepository.findFirstByUserId(userId)?.let { existing ->
             existing.title = request.title
             existing.coverFileId = request.coverFileId
+            if (existing.status == 2 || existing.status == 3) {
+                existing.status = 0
+                existing.closedReason = null
+                existing.closedBy = null
+                existing.closedAt = null
+            }
             existing.updatedAt = LocalDateTime.now()
             return toDTO(liveRoomRepository.save(existing))
         }
@@ -67,11 +73,11 @@ class LiveRoomServiceImpl(
             throw BusinessException(ErrorCode.ROOM_PERMISSION_DENIED)
         }
 
-        if (room.status != 0) {
-            if (room.status == 3) {
-                throw BusinessException(ErrorCode.ROOM_CLOSED_BY_ADMIN)
-            }
-            throw BusinessException(ErrorCode.ROOM_STATUS_ERROR, "只有未开播的直播间可以开播")
+        if (room.status == 3) {
+            throw BusinessException(ErrorCode.ROOM_CLOSED_BY_ADMIN)
+        }
+        if (room.status == 1) {
+            throw BusinessException(ErrorCode.ROOM_STATUS_ERROR, "直播间已在直播中")
         }
 
         room.status = 1

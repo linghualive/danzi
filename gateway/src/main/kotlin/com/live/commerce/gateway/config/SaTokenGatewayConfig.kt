@@ -24,6 +24,7 @@ class SaTokenGatewayConfig {
                 "/api/user/register",
                 "/api/user/login",
                 "/api/user/{id}",
+                "/api/user/profile/{userId}",
                 "/api/live/room/{id}",
                 "/api/live/room/list",
                 "/api/live/callback/**",
