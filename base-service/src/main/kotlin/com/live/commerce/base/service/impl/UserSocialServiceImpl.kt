@@ -4,6 +4,7 @@ import com.live.commerce.base.dto.*
 import com.live.commerce.base.entity.PrivateMessage
 import com.live.commerce.base.entity.UserFollow
 import com.live.commerce.base.entity.UserProfile
+import com.live.commerce.base.repository.LiveRoomRepository
 import com.live.commerce.base.repository.PrivateMessageRepository
 import com.live.commerce.base.repository.UserFollowRepository
 import com.live.commerce.base.repository.UserProfileRepository
@@ -20,7 +21,8 @@ class UserSocialServiceImpl(
     private val userRepository: UserRepository,
     private val userProfileRepository: UserProfileRepository,
     private val userFollowRepository: UserFollowRepository,
-    private val privateMessageRepository: PrivateMessageRepository
+    private val privateMessageRepository: PrivateMessageRepository,
+    private val liveRoomRepository: LiveRoomRepository? = null
 ) : UserSocialService {
 
     override fun getMyProfile(userId: Long): UserProfileDTO = getProfile(userId)
@@ -88,12 +90,15 @@ class UserSocialServiceImpl(
         return followeeIds.mapNotNull { id ->
             val user = users[id] ?: return@mapNotNull null
             val profile = userProfileRepository.findByUserId(id)
+            val (liveRoomId, living) = resolveLiveStatus(id)
             FollowUserDTO(
                 userId = user.id,
                 username = user.username,
                 nickname = user.nickname,
                 avatarUrl = profile?.avatarFileId?.let { "/api/base/media/public/$it" },
-                followedByMe = userFollowRepository.existsByFollowerIdAndFolloweeId(currentUserId, id)
+                followedByMe = userFollowRepository.existsByFollowerIdAndFolloweeId(currentUserId, id),
+                liveRoomId = liveRoomId,
+                living = living
             )
         }
     }
@@ -108,12 +113,15 @@ class UserSocialServiceImpl(
         return followerIds.mapNotNull { id ->
             val user = users[id] ?: return@mapNotNull null
             val profile = userProfileRepository.findByUserId(id)
+            val (liveRoomId, living) = resolveLiveStatus(id)
             FollowUserDTO(
                 userId = user.id,
                 username = user.username,
                 nickname = user.nickname,
                 avatarUrl = profile?.avatarFileId?.let { "/api/base/media/public/$it" },
-                followedByMe = userFollowRepository.existsByFollowerIdAndFolloweeId(currentUserId, id)
+                followedByMe = userFollowRepository.existsByFollowerIdAndFolloweeId(currentUserId, id),
+                liveRoomId = liveRoomId,
+                living = living
             )
         }
     }
@@ -210,5 +218,11 @@ class UserSocialServiceImpl(
             bio = profile?.bio,
             avatarUrl = profile?.avatarFileId?.let { "/api/base/media/public/$it" }
         )
+    }
+
+    private fun resolveLiveStatus(userId: Long): Pair<Long?, Boolean> {
+        val room = liveRoomRepository?.findFirstByUserId(userId)
+        val living = room?.status == 1
+        return Pair(if (living) room?.id else null, living)
     }
 }

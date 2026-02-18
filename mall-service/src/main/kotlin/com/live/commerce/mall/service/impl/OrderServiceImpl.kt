@@ -222,7 +222,7 @@ class OrderServiceImpl(
 
     override fun getLiveSummary(sellerId: Long, from: LocalDateTime, to: LocalDateTime): LiveSummaryDTO {
         val orders = orderRepository.findBySellerIdAndStatusInAndCreatedAtBetween(
-            sellerId, listOf(1, 3, 4), from, to
+            sellerId, listOf(1), from, to
         )
         val allItems = orders.flatMap { orderItemRepository.findByOrderId(it.id) }
 
@@ -237,7 +237,7 @@ class OrderServiceImpl(
                     acc.add(item.price.multiply(BigDecimal(item.quantity)))
                 }
             )
-        }
+        }.sortedByDescending { it.totalQuantity }
 
         return LiveSummaryDTO(
             totalOrders = orders.size,

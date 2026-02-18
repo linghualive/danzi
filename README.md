@@ -48,6 +48,20 @@ REM 查看运行状态
 start.bat status
 ```
 
+如果你希望使用和 `run.sh` 对齐的 Docker Compose 生产编排脚本，可使用：
+
+```cmd
+REM 默认等同于 start
+run.bat
+
+REM 或显式执行
+run.bat start
+run.bat status
+run.bat logs
+run.bat seed
+run.bat stop
+```
+
 启动完成后：
 
 | 入口 | 地址 |

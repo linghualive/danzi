@@ -134,7 +134,7 @@ export default {
             </div>
 
             <!-- Follow List Modal -->
-            <div v-if="store.followListVisible" class="modal-overlay" @click.self="store.closeFollowList()">
+            <div v-if="store.followListVisible" class="modal-overlay show" @click.self="store.closeFollowList()">
                 <div class="modal-content" style="max-width:420px">
                     <div class="modal-header">
                         <h3>{{ store.followListType === 'following' ? '关注列表' : '粉丝列表' }}</h3>
@@ -147,7 +147,15 @@ export default {
                         <div v-for="u in store.followListUsers" :key="u.userId" class="admin-row" style="display:flex;align-items:center;gap:10px;padding:8px 0">
                             <img v-if="u.avatarUrl" :src="store.fullMediaUrl(u.avatarUrl)" style="width:32px;height:32px;border-radius:50%;object-fit:cover" />
                             <span v-else style="width:32px;height:32px;border-radius:50%;background:var(--bg-elevated);display:inline-flex;align-items:center;justify-content:center">&#128100;</span>
-                            <span style="flex:1">{{ u.nickname || u.username }}</span>
+                            <span style="flex:1;display:flex;align-items:center;gap:8px">
+                                <span>{{ u.nickname || u.username }}</span>
+                                <span v-if="u.living" class="live-dot">直播中</span>
+                            </span>
+                            <button
+                                v-if="u.living && u.liveRoomId"
+                                class="btn btn-primary btn-sm"
+                                @click="store.goToFollowLiveRoom(u)"
+                            >进直播间</button>
                             <button v-if="u.userId !== store.currentUserId" class="btn btn-outline btn-sm" @click="store.toggleFollowInList(u.userId)">
                                 {{ u.followedByMe ? '已关注' : '关注' }}
                             </button>

@@ -5,5 +5,7 @@ data class FollowUserDTO(
     val username: String,
     val nickname: String,
     val avatarUrl: String?,
-    val followedByMe: Boolean
+    val followedByMe: Boolean,
+    val liveRoomId: Long? = null,
+    val living: Boolean = false
 )

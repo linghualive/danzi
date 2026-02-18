@@ -1,6 +1,7 @@
 package com.live.commerce.base.controller
 
 import cn.dev33.satoken.stp.StpUtil
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.live.commerce.base.dto.*
 import com.live.commerce.base.entity.RoomWarning
 import com.live.commerce.base.repository.LiveRoomRepository
@@ -9,6 +10,7 @@ import com.live.commerce.base.repository.UserRepository
 import com.live.commerce.base.service.BroadcastQualificationService
 import com.live.commerce.base.service.LiveRoomService
 import com.live.commerce.base.support.UserPermissionSupport
+import com.live.commerce.base.websocket.RoomSessionManager
 import com.live.commerce.common.dto.PageResult
 import com.live.commerce.common.dto.Result
 import com.live.commerce.common.exception.BusinessException
@@ -25,8 +27,10 @@ class AdminController(
     private val roomWarningRepository: RoomWarningRepository,
     private val liveRoomService: LiveRoomService,
     private val userPermissionSupport: UserPermissionSupport,
-    private val broadcastQualificationService: BroadcastQualificationService
+    private val broadcastQualificationService: BroadcastQualificationService,
+    private val roomSessionManager: RoomSessionManager
 ) {
+    private val objectMapper = jacksonObjectMapper()
 
     @GetMapping("/users")
     fun users(
@@ -125,13 +129,25 @@ class AdminController(
         val adminId = StpUtil.getLoginIdAsLong()
         userPermissionSupport.requireAdmin(adminId)
         liveRoomRepository.findById(id).orElseThrow { BusinessException(ErrorCode.ROOM_NOT_FOUND) }
-        roomWarningRepository.save(
+        val warning = roomWarningRepository.save(
             RoomWarning(
                 roomId = id,
                 adminId = adminId,
                 message = request.message
             )
         )
+        val payload = mapOf(
+            "id" to warning.id,
+            "type" to "WARNING",
+            "userId" to adminId,
+            "nickname" to "系统管理员",
+            "content" to warning.message,
+            "roomId" to id,
+            "timestamp" to System.currentTimeMillis()
+        )
+        runCatching {
+            roomSessionManager.broadcast(id, objectMapper.writeValueAsString(payload))
+        }
         return Result.ok()
     }
 

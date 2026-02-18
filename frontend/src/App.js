@@ -71,6 +71,7 @@ export default {
                 v-if="store.currentUser"
                 :display-nickname="store.displayNickname"
                 :is-admin="store.isAdmin"
+                :is-anchor="store.isAnchor"
                 @navigate-rooms="gotoRooms"
                 @navigate-orders="gotoOrders"
                 @navigate-sold="gotoSold"

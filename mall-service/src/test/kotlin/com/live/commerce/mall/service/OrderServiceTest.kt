@@ -699,7 +699,7 @@ class OrderServiceTest {
             Order(id = 1L, orderNo = "001", userId = 10L, sellerId = 100L, totalAmount = BigDecimal("100.00"), status = 1, createdAt = from.plusHours(1)),
             Order(id = 2L, orderNo = "002", userId = 11L, sellerId = 100L, totalAmount = BigDecimal("200.00"), status = 1, createdAt = from.plusHours(2))
         )
-        every { orderRepository.findBySellerIdAndStatusInAndCreatedAtBetween(100L, listOf(1, 3, 4), from, to) } returns orders
+        every { orderRepository.findBySellerIdAndStatusInAndCreatedAtBetween(100L, listOf(1), from, to) } returns orders
         every { orderItemRepository.findByOrderId(1L) } returns listOf(
             OrderItem(id = 1L, orderId = 1L, productId = 1L, productName = "ProductA", price = BigDecimal("50.00"), quantity = 2)
         )
@@ -722,7 +722,7 @@ class OrderServiceTest {
     fun `should return empty live summary when no orders in period`() {
         val from = LocalDateTime.of(2024, 1, 1, 0, 0)
         val to = LocalDateTime.of(2024, 1, 1, 23, 59, 59)
-        every { orderRepository.findBySellerIdAndStatusInAndCreatedAtBetween(100L, listOf(1, 3, 4), from, to) } returns emptyList()
+        every { orderRepository.findBySellerIdAndStatusInAndCreatedAtBetween(100L, listOf(1), from, to) } returns emptyList()
 
         val result = orderService.getLiveSummary(100L, from, to)
 
@@ -732,13 +732,13 @@ class OrderServiceTest {
     }
 
     @Test
-    fun `should only include paid and refund orders in live summary`() {
+    fun `should only include paid orders in live summary`() {
         val from = LocalDateTime.of(2024, 1, 1, 0, 0)
         val to = LocalDateTime.of(2024, 1, 1, 23, 59, 59)
         val orders = listOf(
             Order(id = 1L, orderNo = "001", userId = 10L, sellerId = 100L, totalAmount = BigDecimal("100.00"), status = 1, createdAt = from.plusHours(1))
         )
-        every { orderRepository.findBySellerIdAndStatusInAndCreatedAtBetween(100L, listOf(1, 3, 4), from, to) } returns orders
+        every { orderRepository.findBySellerIdAndStatusInAndCreatedAtBetween(100L, listOf(1), from, to) } returns orders
         every { orderItemRepository.findByOrderId(1L) } returns listOf(
             OrderItem(id = 1L, orderId = 1L, productId = 1L, productName = "P1", price = BigDecimal("100.00"), quantity = 1)
         )

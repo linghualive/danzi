@@ -14,5 +14,7 @@ data class LiveRoomDTO(
     val closedReason: String?,
     val startedAt: LocalDateTime? = null,
     val stoppedAt: LocalDateTime? = null,
-    val createdAt: LocalDateTime
+    val createdAt: LocalDateTime,
+    val anchorName: String? = null,
+    val viewerCount: Int = 0
 )

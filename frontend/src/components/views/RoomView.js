@@ -46,9 +46,33 @@ export default {
             type: Boolean,
             default: false
         },
+        roomWarnings: {
+            type: Array,
+            default: () => []
+        },
         statusText: {
             type: Array,
             default: () => []
+        },
+        roomEditTitle: {
+            type: String,
+            default: ''
+        },
+        roomEditCoverUrl: {
+            type: String,
+            default: ''
+        },
+        roomEditDirty: {
+            type: Boolean,
+            default: false
+        },
+        roomEditSaving: {
+            type: Boolean,
+            default: false
+        },
+        roomEditModalVisible: {
+            type: Boolean,
+            default: false
         },
         productsExpanded: {
             type: Boolean,
@@ -116,6 +140,12 @@ export default {
         'navigate-rooms',
         'start-live',
         'stop-live',
+        'open-room-edit-modal',
+        'close-room-edit-modal',
+        'update-room-edit-title',
+        'upload-room-edit-cover',
+        'reset-room-edit',
+        'save-room-edit',
         'copy-text',
         'toggle-products',
         'set-ws-msg-type',
@@ -161,6 +191,16 @@ export default {
         },
         emojiCategories() {
             return EMOJI_CATEGORIES;
+        },
+        soldQuantity() {
+            const items = this.liveSummary?.items || [];
+            return items.reduce((sum, item) => sum + (Number(item.totalQuantity) || 0), 0);
+        },
+        canEditRoomBasic() {
+            return this.isRoomOwner && this.currentRoom && this.currentRoom.status !== 1 && this.currentRoom.status !== 3;
+        },
+        displayRoomEditCover() {
+            return this.roomEditCoverUrl || this.currentRoom?.coverUrl || '';
         }
     },
     watch: {
@@ -185,6 +225,16 @@ export default {
         formatPrice,
         onMsgInput(event) {
             this.$emit('update-msg-input', event.target.value);
+        },
+        onRoomEditTitleInput(event) {
+            this.$emit('update-room-edit-title', event.target.value);
+        },
+        onRoomEditCoverChange(event) {
+            const file = event.target.files && event.target.files[0];
+            if (file) {
+                this.$emit('upload-room-edit-cover', file);
+            }
+            event.target.value = '';
         },
         togglePlay() {
             const video = this.$refs.videoPlayer;
@@ -241,6 +291,45 @@ export default {
         },
         canManageProduct(product) {
             return this.isAdmin || this.isRoomOwner || this.currentUserId === (product?.sellerId || 0);
+        },
+        normalizeLiveEndpoint(url) {
+            if (!url) {
+                return '';
+            }
+
+            const currentHost = window.location.hostname || 'localhost';
+            const currentIsLocal = currentHost === 'localhost' || currentHost === '127.0.0.1';
+
+            try {
+                const parsed = new URL(url, window.location.origin);
+                const targetIsLocal = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+                if (targetIsLocal && !currentIsLocal) {
+                    parsed.hostname = currentHost;
+                }
+                return parsed.toString();
+            } catch (error) {
+                return String(url).replace(/\/\/(localhost|127\.0\.0\.1)(?=[:/]|$)/i, `//${currentHost}`);
+            }
+        },
+        displayPushUrl() {
+            const raw = this.currentRoom?.pushUrl || (this.currentRoom?.streamKey ? `rtmp://localhost:1935/live/${this.currentRoom.streamKey}` : '');
+            return raw ? this.normalizeLiveEndpoint(raw) : '-';
+        },
+        displayObsServer() {
+            const pushUrl = this.displayPushUrl();
+            if (!pushUrl || pushUrl === '-') {
+                return '-';
+            }
+            const streamKey = this.currentRoom?.streamKey;
+            if (streamKey && pushUrl.endsWith(`/${streamKey}`)) {
+                return pushUrl.slice(0, -(`/${streamKey}`.length));
+            }
+            const index = pushUrl.lastIndexOf('/');
+            return index > 0 ? pushUrl.slice(0, index) : pushUrl;
+        },
+        displayPullUrl() {
+            const raw = this.currentRoom?.pullUrl || '';
+            return raw ? this.normalizeLiveEndpoint(raw) : '-';
         }
     },
     template: `
@@ -267,22 +356,38 @@ export default {
                         class="btn btn-outline btn-sm"
                         @click="$emit('contact-owner')"
                     >私信</button>
-                    <span>
+                    <div class="room-actions">
                         <button
-                            v-if="isRoomOwner && currentRoom?.status === 0"
-                            class="btn btn-success btn-sm"
+                            v-if="canEditRoomBasic"
+                            class="btn btn-outline btn-sm live-action-btn"
+                            @click="$emit('open-room-edit-modal')"
+                        >
+                            修改直播间信息
+                        </button>
+                        <button
+                            v-if="isRoomOwner && currentRoom && currentRoom.status !== 1 && currentRoom.status !== 3"
+                            class="btn btn-success btn-sm live-action-btn"
                             @click="$emit('start-live')"
                         >
-                            \u5F00\u64AD
+                            {{ currentRoom?.status === 2 ? '再次开播' : '开播' }}
                         </button>
                         <button
                             v-if="isRoomOwner && currentRoom?.status === 1"
-                            class="btn btn-danger btn-sm"
+                            class="btn btn-danger btn-sm live-action-btn"
                             @click="$emit('stop-live')"
                         >
                             \u505C\u64AD
                         </button>
-                    </span>
+                    </div>
+                </div>
+
+                <div
+                    v-if="isRoomOwner && roomWarnings.length"
+                    class="room-warning-banner"
+                >
+                    <span class="room-warning-tag">管理员警告</span>
+                    <span class="room-warning-text">{{ roomWarnings[0].message }}</span>
+                    <span class="room-warning-time">{{ roomWarnings[0].createdAt || '' }}</span>
                 </div>
 
                 <div class="video-wrapper" ref="videoWrapper" :class="{ 'controls-hidden': !controlsVisible }" @mousemove="showControls">
@@ -290,6 +395,7 @@ export default {
                     <div class="video-placeholder" v-show="currentRoom?.status !== 1">
                         <div class="icon">&#128250;</div>
                         <p v-if="currentRoom?.status === 2">\u76F4\u64AD\u5DF2\u7ED3\u675F</p>
+                        <p v-else-if="currentRoom?.status === 3">直播间已被管理员关闭{{ currentRoom?.closedReason ? ('：' + currentRoom.closedReason) : '' }}</p>
                         <p v-else>\u4E3B\u64AD\u5C1A\u672A\u5F00\u64AD\uFF0C\u8BF7\u7A0D\u5019...</p>
                     </div>
                     <div class="danmaku-layer" ref="danmakuLayer"></div>
@@ -376,6 +482,10 @@ export default {
                                 <template v-if="msg.system">
                                     <span class="fs-msg-system">{{ msg.content }}</span>
                                 </template>
+                                <template v-else-if="msg.type === 'WARNING'">
+                                    <span class="fs-msg-nick">管理员:</span>
+                                    <span class="fs-msg-warning">{{ msg.content }}</span>
+                                </template>
                                 <template v-else-if="msg.type === 'LIKE'">
                                     <span class="fs-msg-nick">{{ msg.nickname }}</span>
                                     <span class="fs-msg-like">&#9829; {{ msg.content }}</span>
@@ -392,7 +502,11 @@ export default {
                 <div class="obs-info" v-if="isRoomOwner">
                     <div>
                         <label>OBS \u670D\u52A1\u5668:</label>
-                        <code @click="$emit('copy-text', 'rtmp://localhost:1935/live')">rtmp://localhost:1935/live</code>
+                        <code @click="$emit('copy-text', displayObsServer())">{{ displayObsServer() }}</code>
+                    </div>
+                    <div>
+                        <label>\u63A8\u6D41\u5730\u5740:</label>
+                        <code @click="$emit('copy-text', displayPushUrl())">{{ displayPushUrl() }}</code>
                     </div>
                     <div>
                         <label>\u63A8\u6D41\u5BC6\u94A5:</label>
@@ -400,7 +514,7 @@ export default {
                     </div>
                     <div>
                         <label>\u62C9\u6D41\u5730\u5740:</label>
-                        <code @click="$emit('copy-text', currentRoom?.pullUrl || '-')">{{ currentRoom?.pullUrl || '-' }}</code>
+                        <code @click="$emit('copy-text', displayPullUrl())">{{ displayPullUrl() }}</code>
                     </div>
                 </div>
             </div>
@@ -418,6 +532,10 @@ export default {
                         >
                             <template v-if="msg.system">
                                 {{ msg.content }}
+                            </template>
+                            <template v-else-if="msg.type === 'WARNING'">
+                                <span class="nickname">管理员:</span>
+                                <span class="content">{{ msg.content }}</span>
                             </template>
                             <template v-else-if="msg.type === 'LIKE'">
                                 <span class="nickname">{{ msg.nickname }}</span>
@@ -485,8 +603,48 @@ export default {
 
             </div>
 
+            <div v-if="roomEditModalVisible && canEditRoomBasic" class="modal-overlay show" @click.self="$emit('close-room-edit-modal')">
+                <div class="modal-content room-edit-modal">
+                    <div class="modal-header">
+                        <h3>修改直播间信息</h3>
+                        <button class="modal-close" @click="$emit('close-room-edit-modal')">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="room-basic-editor">
+                            <div class="room-basic-cover-block">
+                                <div class="room-basic-cover-preview">
+                                    <img v-if="displayRoomEditCover" :src="displayRoomEditCover" class="room-basic-cover-img" />
+                                    <div v-else class="room-basic-cover-empty">&#128247;</div>
+                                </div>
+                                <label class="room-basic-cover-upload">
+                                    更换封面
+                                    <input type="file" accept="image/*" @change="onRoomEditCoverChange" />
+                                </label>
+                            </div>
+                            <div class="room-basic-form-block">
+                                <label class="room-basic-label">直播标题</label>
+                                <input
+                                    class="form-input room-basic-title-input"
+                                    :value="roomEditTitle"
+                                    placeholder="请输入直播标题"
+                                    @input="onRoomEditTitleInput"
+                                />
+                                <div class="room-basic-actions">
+                                    <button class="btn btn-primary btn-sm" :disabled="roomEditSaving" @click="$emit('save-room-edit')">
+                                        {{ roomEditSaving ? '保存中...' : '保存直播信息' }}
+                                    </button>
+                                    <button v-if="roomEditDirty" class="btn btn-outline btn-sm" :disabled="roomEditSaving" @click="$emit('reset-room-edit')">
+                                        重置
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Live Summary Modal -->
-            <div v-if="liveSummaryVisible && liveSummary" class="modal-overlay" @click.self="$emit('close-summary')">
+            <div v-if="liveSummaryVisible && liveSummary" class="modal-overlay show" @click.self="$emit('close-summary')">
                 <div class="modal-content" style="max-width:480px">
                     <div class="modal-header">
                         <h3>\u76F4\u64AD\u603B\u7ED3</h3>
@@ -494,8 +652,9 @@ export default {
                     </div>
                     <div class="modal-body">
                         <div style="margin-bottom:12px;font-size:14px">
-                            <span>\u8BA2\u5355\u6570: <b>{{ liveSummary.totalOrders }}</b></span>
-                            <span style="margin-left:20px">\u603B\u91D1\u989D: <b style="color:var(--red)">&yen;{{ formatPrice(liveSummary.totalAmount || 0) }}</b></span>
+                            <span>卖出订单: <b>{{ liveSummary.totalOrders }}</b></span>
+                            <span style="margin-left:20px">卖出件数: <b>{{ soldQuantity }}</b></span>
+                            <span style="margin-left:20px">销售额: <b style="color:var(--red)">&yen;{{ formatPrice(liveSummary.totalAmount || 0) }}</b></span>
                         </div>
                         <div v-if="liveSummary.items && liveSummary.items.length">
                             <div v-for="item in liveSummary.items" :key="item.productId" class="order-item-row" style="padding:6px 0">

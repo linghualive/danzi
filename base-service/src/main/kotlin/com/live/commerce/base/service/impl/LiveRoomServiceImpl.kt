@@ -2,10 +2,12 @@ package com.live.commerce.base.service.impl
 
 import com.live.commerce.base.dto.CreateRoomRequest
 import com.live.commerce.base.dto.LiveRoomDTO
+import com.live.commerce.base.dto.UpdateRoomBasicRequest
 import com.live.commerce.base.entity.LiveRoom
 import com.live.commerce.base.repository.LiveRoomRepository
 import com.live.commerce.base.repository.UserRepository
 import com.live.commerce.base.service.LiveRoomService
+import com.live.commerce.base.websocket.RoomSessionManager
 import com.live.commerce.common.dto.PageResult
 import com.live.commerce.common.exception.BusinessException
 import com.live.commerce.common.exception.ErrorCode
@@ -19,7 +21,8 @@ import java.util.UUID
 class LiveRoomServiceImpl(
     private val liveRoomRepository: LiveRoomRepository,
     private val broadcastQualificationService: com.live.commerce.base.service.BroadcastQualificationService? = null,
-    private val userRepository: UserRepository? = null
+    private val userRepository: UserRepository? = null,
+    private val roomSessionManager: RoomSessionManager? = null
 ) : LiveRoomService {
 
     @Transactional
@@ -58,16 +61,37 @@ class LiveRoomServiceImpl(
     override fun getRoomById(id: Long): LiveRoomDTO {
         val room = liveRoomRepository.findById(id)
             .orElseThrow { BusinessException(ErrorCode.ROOM_NOT_FOUND) }
-        return toDTO(room)
+        val anchorName = userRepository?.findById(room.userId)?.orElse(null)?.let { it.nickname ?: it.username }
+        val viewerCount = roomSessionManager?.getSessionCount(room.id) ?: 0
+        return toDTO(room, anchorName, viewerCount)
+    }
+
+    override fun getMyRoom(userId: Long): LiveRoomDTO? {
+        val room = liveRoomRepository.findFirstByUserId(userId) ?: return null
+        return toDTO(
+            room = room,
+            anchorName = userRepository?.findById(userId)?.orElse(null)?.let { it.nickname ?: it.username },
+            viewerCount = roomSessionManager?.getSessionCount(room.id) ?: 0
+        )
     }
 
     override fun listRooms(page: Int, size: Int, keyword: String?): PageResult<LiveRoomDTO> {
         val pageable = PageRequest.of(page, size)
         val normalizedKeyword = keyword?.trim()?.ifBlank { null }
         val pageResult = liveRoomRepository.searchLiveRooms(normalizedKeyword, pageable)
+        val userNameMap = userRepository
+            ?.findAllById(pageResult.content.map { it.userId }.toSet())
+            ?.associateBy({ it.id }, { it.nickname ?: it.username })
+            ?: emptyMap()
 
         return PageResult(
-            content = pageResult.content.map { toDTO(it) },
+            content = pageResult.content.map { room ->
+                toDTO(
+                    room = room,
+                    anchorName = userNameMap[room.userId],
+                    viewerCount = roomSessionManager?.getSessionCount(room.id) ?: 0
+                )
+            },
             page = pageResult.number,
             size = pageResult.size,
             totalElements = pageResult.totalElements,
@@ -97,6 +121,37 @@ class LiveRoomServiceImpl(
         room.updatedAt = LocalDateTime.now()
         val saved = liveRoomRepository.save(room)
         return toDTO(saved)
+    }
+
+    @Transactional
+    override fun updateRoomBasic(roomId: Long, userId: Long, request: UpdateRoomBasicRequest): LiveRoomDTO {
+        val room = liveRoomRepository.findById(roomId)
+            .orElseThrow { BusinessException(ErrorCode.ROOM_NOT_FOUND) }
+
+        if (room.userId != userId) {
+            throw BusinessException(ErrorCode.ROOM_PERMISSION_DENIED)
+        }
+
+        if (room.status == 1) {
+            throw BusinessException(ErrorCode.ROOM_STATUS_ERROR, "直播中不可修改直播信息")
+        }
+
+        if (room.status == 3) {
+            throw BusinessException(ErrorCode.ROOM_CLOSED_BY_ADMIN)
+        }
+
+        room.title = request.title
+        if (request.coverFileId != null) {
+            room.coverFileId = request.coverFileId
+        }
+        room.updatedAt = LocalDateTime.now()
+
+        val saved = liveRoomRepository.save(room)
+        return toDTO(
+            room = saved,
+            anchorName = userRepository?.findById(saved.userId)?.orElse(null)?.let { it.nickname ?: it.username },
+            viewerCount = roomSessionManager?.getSessionCount(saved.id) ?: 0
+        )
     }
 
     @Transactional
@@ -133,7 +188,11 @@ class LiveRoomServiceImpl(
 
     private fun generateStreamKey(): String = UUID.randomUUID().toString().replace("-", "")
 
-    private fun toDTO(room: LiveRoom): LiveRoomDTO = LiveRoomDTO(
+    private fun toDTO(
+        room: LiveRoom,
+        anchorName: String? = null,
+        viewerCount: Int = 0
+    ): LiveRoomDTO = LiveRoomDTO(
         id = room.id,
         userId = room.userId,
         title = room.title,
@@ -145,6 +204,8 @@ class LiveRoomServiceImpl(
         closedReason = room.closedReason,
         startedAt = room.startedAt,
         stoppedAt = room.stoppedAt,
-        createdAt = room.createdAt
+        createdAt = room.createdAt,
+        anchorName = anchorName,
+        viewerCount = viewerCount
     )
 }
