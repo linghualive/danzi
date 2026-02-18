@@ -9,6 +9,7 @@ export const profileSocialActions = {
                 this.profile = profileResult.data;
                 this.profileForm.nickname = profileResult.data.nickname || '';
                 this.profileForm.bio = profileResult.data.bio || '';
+                this.updateCurrentUserProfile(profileResult.data);
             }
             if (statsResult.code === 200 && statsResult.data) {
                 this.followStats = statsResult.data;
@@ -56,10 +57,7 @@ export const profileSocialActions = {
             const result = await this.api('PUT', '/api/user/profile/me', body);
             if (result.code === 200 && result.data) {
                 this.profile = result.data;
-                if (this.currentUser) {
-                    this.currentUser.nickname = result.data.nickname;
-                    localStorage.setItem('lc_user', JSON.stringify(this.currentUser));
-                }
+                this.updateCurrentUserProfile(result.data);
                 this.addToast('资料已保存', 'success');
             } else {
                 this.addToast(result.message || '保存失败', 'error');

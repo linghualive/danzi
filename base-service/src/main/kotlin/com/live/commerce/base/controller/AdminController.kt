@@ -161,6 +161,13 @@ class AdminController(
         return Result.ok(data = liveRoomService.adminCloseRoom(id, adminId, request.reason))
     }
 
+    @PutMapping("/room/{id}/unban")
+    fun unbanRoom(@PathVariable id: Long): Result<LiveRoomDTO> {
+        val adminId = StpUtil.getLoginIdAsLong()
+        userPermissionSupport.requireAdmin(adminId)
+        return Result.ok(data = liveRoomService.adminUnbanRoom(id, adminId))
+    }
+
     @GetMapping("/qualifications")
     fun getQualifications(): Result<List<BroadcastQualificationDTO>> {
         val adminId = StpUtil.getLoginIdAsLong()

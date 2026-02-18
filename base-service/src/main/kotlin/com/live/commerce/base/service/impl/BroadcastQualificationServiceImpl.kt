@@ -5,6 +5,7 @@ import com.live.commerce.base.dto.ReviewQualificationRequest
 import com.live.commerce.base.dto.SubmitQualificationRequest
 import com.live.commerce.base.entity.BroadcastQualification
 import com.live.commerce.base.repository.BroadcastQualificationRepository
+import com.live.commerce.base.repository.UserRepository
 import com.live.commerce.base.service.BroadcastQualificationService
 import com.live.commerce.common.exception.BusinessException
 import com.live.commerce.common.exception.ErrorCode
@@ -14,7 +15,8 @@ import java.time.LocalDateTime
 
 @Service
 class BroadcastQualificationServiceImpl(
-    private val qualificationRepository: BroadcastQualificationRepository
+    private val qualificationRepository: BroadcastQualificationRepository,
+    private val userRepository: UserRepository? = null
 ) : BroadcastQualificationService {
 
     @Transactional
@@ -61,7 +63,20 @@ class BroadcastQualificationServiceImpl(
         qualification.reviewedAt = LocalDateTime.now()
         qualification.updatedAt = LocalDateTime.now()
 
-        return toDTO(qualificationRepository.save(qualification))
+        val savedQualification = qualificationRepository.save(qualification)
+
+        if (request.status == 1) {
+            userRepository?.let { repo ->
+                val user = repo.findById(qualification.userId).orElse(null)
+                if (user != null && user.role != 2) {
+                    user.role = 1
+                    user.updatedAt = LocalDateTime.now()
+                    repo.save(user)
+                }
+            }
+        }
+
+        return toDTO(savedQualification)
     }
 
     override fun getPendingApplications(): List<BroadcastQualificationDTO> {

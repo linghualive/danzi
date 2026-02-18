@@ -14,4 +14,5 @@ interface LiveRoomService {
     fun startLive(roomId: Long, userId: Long): LiveRoomDTO
     fun stopLive(roomId: Long, userId: Long): LiveRoomDTO
     fun adminCloseRoom(roomId: Long, adminId: Long, reason: String): LiveRoomDTO
+    fun adminUnbanRoom(roomId: Long, adminId: Long): LiveRoomDTO
 }

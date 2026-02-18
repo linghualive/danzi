@@ -20,6 +20,10 @@ export const baseActions = {
         }
 
         this.initialized = true;
+
+        if (this.currentUser?.token) {
+            this.refreshCurrentUserProfile();
+        }
     },
 
     async api(method, path, body) {
@@ -57,6 +61,36 @@ export const baseActions = {
     saveUser(data) {
         this.currentUser = data;
         localStorage.setItem('lc_user', JSON.stringify(data));
+    },
+
+    updateCurrentUserProfile(profile) {
+        if (!this.currentUser || !profile) {
+            return;
+        }
+
+        const nextUser = {
+            ...this.currentUser,
+            nickname: profile.nickname ?? this.currentUser.nickname,
+            role: profile.role ?? this.currentUser.role
+        };
+
+        this.currentUser = nextUser;
+        localStorage.setItem('lc_user', JSON.stringify(nextUser));
+    },
+
+    async refreshCurrentUserProfile() {
+        if (!this.currentUser?.token) {
+            return;
+        }
+
+        try {
+            const result = await this.api('GET', '/api/user/profile/me');
+            if (result.code === 200 && result.data) {
+                this.updateCurrentUserProfile(result.data);
+            }
+        } catch (error) {
+            // keep cached user when network is unavailable
+        }
     },
 
     logout() {

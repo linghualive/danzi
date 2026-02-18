@@ -68,6 +68,21 @@ export const adminProductQualificationActions = {
         }
     },
 
+    async unbanRoom(roomId) {
+        if (!roomId) return;
+        try {
+            const result = await this.api('PUT', `/api/admin/room/${roomId}/unban`);
+            if (result.code === 200) {
+                this.addToast('直播间已解禁', 'success');
+                this.loadAdminRooms();
+            } else {
+                this.addToast(result.message || '解禁失败', 'error');
+            }
+        } catch (error) {
+            this.addToast('解禁失败', 'error');
+        }
+    },
+
     openAddProductModal() {
         this.editingProductId = null;
         this.newProduct = { name: '', description: '', price: '', stock: '', imageFileId: null };

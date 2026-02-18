@@ -69,6 +69,7 @@ export default {
                     <div v-for="r in store.adminRooms" :key="r.id" class="admin-row">
                         <span class="admin-row-title">#{{ r.id }} {{ r.title }} <span v-if="r.ownerNickname">(主播: {{ r.ownerNickname }})</span> (状态: {{ store.statusText[r.status] || r.status }})</span>
                         <button class="btn btn-outline btn-sm" @click="store.warnRoom(r.id)">警告</button>
+                        <button v-if="r.status === 3" class="btn btn-success btn-sm" @click="store.unbanRoom(r.id)">解禁</button>
                         <button class="btn btn-danger btn-sm" @click="store.closeRoom(r.id)">关闭</button>
                     </div>
                 </div>

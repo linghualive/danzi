@@ -167,6 +167,24 @@ class LiveRoomServiceImpl(
     }
 
     @Transactional
+    override fun adminUnbanRoom(roomId: Long, adminId: Long): LiveRoomDTO {
+        val room = liveRoomRepository.findById(roomId)
+            .orElseThrow { BusinessException(ErrorCode.ROOM_NOT_FOUND) }
+
+        if (room.status != 3) {
+            throw BusinessException(ErrorCode.ROOM_STATUS_ERROR, "仅可解禁被管理员关闭的直播间")
+        }
+
+        room.status = 2
+        room.closedBy = null
+        room.closedReason = null
+        room.closedAt = null
+        room.updatedAt = LocalDateTime.now()
+
+        return toDTO(liveRoomRepository.save(room))
+    }
+
+    @Transactional
     override fun stopLive(roomId: Long, userId: Long): LiveRoomDTO {
         val room = liveRoomRepository.findById(roomId)
             .orElseThrow { BusinessException(ErrorCode.ROOM_NOT_FOUND) }
