@@ -21,6 +21,10 @@ spring:
           uri: http://localhost:9001
           predicates:
             - Path=/api/admin/**
+        - id: base-service-broadcast
+          uri: http://localhost:9001
+          predicates:
+            - Path=/api/broadcast/**
         - id: base-service-media
           uri: http://localhost:9001
           predicates:

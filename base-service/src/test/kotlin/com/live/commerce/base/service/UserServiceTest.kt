@@ -103,6 +103,16 @@ class UserServiceTest {
     }
 
     @Test
+    fun `should prevent disabled user from logging in`() {
+        val encodedPassword = passwordEncoder.encode("password123")
+        val user = User(id = 1L, username = "disabled", password = encodedPassword, nickname = "Disabled", role = 0, status = 1)
+        every { userRepository.findByUsername("disabled") } returns user
+
+        val exception = assertThrows<BusinessException> { userService.login(LoginRequest("disabled", "password123")) }
+        assertEquals(ErrorCode.USER_DISABLED, exception.code)
+    }
+
+    @Test
     fun `should throw exception when user not found by id`() {
         every { userRepository.findById(99L) } returns java.util.Optional.empty()
 

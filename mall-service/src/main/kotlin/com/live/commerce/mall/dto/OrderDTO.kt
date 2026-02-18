@@ -53,7 +53,8 @@ data class OrderItemDTO(
     val productId: Long,
     val productName: String,
     val price: BigDecimal,
-    val quantity: Int
+    val quantity: Int,
+    val productImage: String? = null
 ) {
     companion object {
         fun from(item: OrderItem): OrderItemDTO = OrderItemDTO(
@@ -61,7 +62,8 @@ data class OrderItemDTO(
             productId = item.productId,
             productName = item.productName,
             price = item.price,
-            quantity = item.quantity
+            quantity = item.quantity,
+            productImage = item.productImage
         )
     }
 }

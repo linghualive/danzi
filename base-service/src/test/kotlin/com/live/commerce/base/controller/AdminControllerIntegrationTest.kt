@@ -5,6 +5,8 @@ import com.live.commerce.base.TestcontainersConfig
 import com.live.commerce.base.dto.CreateRoomRequest
 import com.live.commerce.base.dto.LoginRequest
 import com.live.commerce.base.dto.RegisterRequest
+import com.live.commerce.base.entity.BroadcastQualification
+import com.live.commerce.base.repository.BroadcastQualificationRepository
 import com.live.commerce.base.repository.RoomWarningRepository
 import com.live.commerce.base.repository.UserRepository
 import com.live.commerce.common.exception.ErrorCode
@@ -35,6 +37,9 @@ class AdminControllerIntegrationTest : TestcontainersConfig() {
 
     @Autowired
     lateinit var roomWarningRepository: RoomWarningRepository
+
+    @Autowired
+    lateinit var qualificationRepository: BroadcastQualificationRepository
 
     private val objectMapper = jacksonObjectMapper()
 
@@ -109,11 +114,14 @@ class AdminControllerIntegrationTest : TestcontainersConfig() {
     @Test
     fun `should warn and close room as admin`() {
         val (adminId, adminToken) = registerAndLogin("admin_room")
-        val (_, ownerToken) = registerAndLogin("room_owner")
+        val (ownerId, ownerToken) = registerAndLogin("room_owner")
 
         val admin = userRepository.findById(adminId).orElseThrow()
         admin.role = 2
         userRepository.save(admin)
+
+        // Grant broadcast qualification to room owner
+        qualificationRepository.save(BroadcastQualification(userId = ownerId, contactInfo = "test", status = 1))
 
         val createResult = mockMvc.perform(
             post("/api/live/room")

@@ -7,5 +7,6 @@ data class AdminUserDTO(
     val username: String,
     val nickname: String,
     val role: Int,
+    val status: Int = 0,
     val createdAt: LocalDateTime
 )

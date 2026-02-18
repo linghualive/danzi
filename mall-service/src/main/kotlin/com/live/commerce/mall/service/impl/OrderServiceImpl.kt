@@ -4,6 +4,8 @@ import com.live.commerce.common.exception.BusinessException
 import com.live.commerce.common.exception.ErrorCode
 import com.live.commerce.common.util.OrderNoGenerator
 import com.live.commerce.mall.dto.CreateOrderRequest
+import com.live.commerce.mall.dto.LiveSummaryDTO
+import com.live.commerce.mall.dto.LiveSummaryItemDTO
 import com.live.commerce.mall.dto.OrderDTO
 import com.live.commerce.mall.dto.RefundRequest
 import com.live.commerce.mall.entity.Order
@@ -63,7 +65,8 @@ class OrderServiceImpl(
                     productId = item.productId,
                     productName = product.name,
                     price = product.price,
-                    quantity = item.quantity
+                    quantity = item.quantity,
+                    productImage = product.imageFileId?.let { "/api/product/media/public/$it" }
                 )
             )
         }
@@ -97,14 +100,26 @@ class OrderServiceImpl(
         return buildOrderDTO(order)
     }
 
-    override fun getUserOrders(userId: Long): List<OrderDTO> {
-        return orderRepository.findByUserId(userId)
+    override fun getUserOrders(userId: Long, keyword: String?): List<OrderDTO> {
+        val normalizedKeyword = keyword?.trim()?.ifBlank { null }
+        val orders = if (normalizedKeyword != null) {
+            orderRepository.findByUserIdAndKeyword(userId, "%$normalizedKeyword%")
+        } else {
+            orderRepository.findByUserId(userId)
+        }
+        return orders
             .sortedByDescending { it.createdAt }
             .map { buildOrderDTO(it) }
     }
 
-    override fun getSoldOrders(userId: Long): List<OrderDTO> {
-        return orderRepository.findBySellerId(userId)
+    override fun getSoldOrders(userId: Long, keyword: String?): List<OrderDTO> {
+        val normalizedKeyword = keyword?.trim()?.ifBlank { null }
+        val orders = if (normalizedKeyword != null) {
+            orderRepository.findBySellerIdAndKeyword(userId, "%$normalizedKeyword%")
+        } else {
+            orderRepository.findBySellerId(userId)
+        }
+        return orders
             .filter { it.status == 1 || it.status == 3 || it.status == 4 }
             .sortedByDescending { it.createdAt }
             .map { buildOrderDTO(it) }
@@ -203,6 +218,32 @@ class OrderServiceImpl(
     override fun autoCancelExpiredOrders() {
         val expiredOrders = orderRepository.findByStatusAndExpireAtBefore(0, LocalDateTime.now())
         expiredOrders.forEach { cancelPendingOrder(it) }
+    }
+
+    override fun getLiveSummary(sellerId: Long, from: LocalDateTime, to: LocalDateTime): LiveSummaryDTO {
+        val orders = orderRepository.findBySellerIdAndStatusInAndCreatedAtBetween(
+            sellerId, listOf(1, 3, 4), from, to
+        )
+        val allItems = orders.flatMap { orderItemRepository.findByOrderId(it.id) }
+
+        val groupedItems = allItems.groupBy { it.productId }
+        val summaryItems = groupedItems.map { (productId, items) ->
+            LiveSummaryItemDTO(
+                productId = productId,
+                productName = items.first().productName,
+                productImage = items.first().productImage,
+                totalQuantity = items.sumOf { it.quantity },
+                totalAmount = items.fold(BigDecimal.ZERO) { acc, item ->
+                    acc.add(item.price.multiply(BigDecimal(item.quantity)))
+                }
+            )
+        }
+
+        return LiveSummaryDTO(
+            totalOrders = orders.size,
+            totalAmount = orders.fold(BigDecimal.ZERO) { acc, order -> acc.add(order.totalAmount) },
+            items = summaryItems
+        )
     }
 
     private fun cancelPendingOrder(order: Order) {

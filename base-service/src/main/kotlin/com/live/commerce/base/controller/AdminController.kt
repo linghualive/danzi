@@ -6,6 +6,7 @@ import com.live.commerce.base.entity.RoomWarning
 import com.live.commerce.base.repository.LiveRoomRepository
 import com.live.commerce.base.repository.RoomWarningRepository
 import com.live.commerce.base.repository.UserRepository
+import com.live.commerce.base.service.BroadcastQualificationService
 import com.live.commerce.base.service.LiveRoomService
 import com.live.commerce.base.support.UserPermissionSupport
 import com.live.commerce.common.dto.PageResult
@@ -23,7 +24,8 @@ class AdminController(
     private val liveRoomRepository: LiveRoomRepository,
     private val roomWarningRepository: RoomWarningRepository,
     private val liveRoomService: LiveRoomService,
-    private val userPermissionSupport: UserPermissionSupport
+    private val userPermissionSupport: UserPermissionSupport,
+    private val broadcastQualificationService: BroadcastQualificationService
 ) {
 
     @GetMapping("/users")
@@ -43,6 +45,7 @@ class AdminController(
                         username = it.username,
                         nickname = it.nickname,
                         role = it.role,
+                        status = it.status,
                         createdAt = it.createdAt
                     )
                 },
@@ -68,6 +71,20 @@ class AdminController(
         return Result.ok()
     }
 
+    @PutMapping("/user/{id}/status")
+    fun updateUserStatus(
+        @PathVariable id: Long,
+        @Valid @RequestBody request: AdminUpdateUserStatusRequest
+    ): Result<Nothing> {
+        val adminId = StpUtil.getLoginIdAsLong()
+        userPermissionSupport.requireAdmin(adminId)
+        val user = userRepository.findById(id)
+            .orElseThrow { BusinessException(ErrorCode.USER_NOT_FOUND) }
+        user.status = request.status
+        userRepository.save(user)
+        return Result.ok()
+    }
+
     @GetMapping("/rooms")
     fun rooms(
         @RequestParam(defaultValue = "0") page: Int,
@@ -77,6 +94,8 @@ class AdminController(
         val adminId = StpUtil.getLoginIdAsLong()
         userPermissionSupport.requireAdmin(adminId)
         val roomPage = liveRoomRepository.searchAllRooms(keyword?.trim()?.ifBlank { null }, PageRequest.of(page, size))
+        val ownerIds = roomPage.content.map { it.userId }.distinct()
+        val ownerMap = userRepository.findAllById(ownerIds).associateBy { it.id }
         return Result.ok(
             data = PageResult(
                 content = roomPage.content.map {
@@ -86,6 +105,7 @@ class AdminController(
                         title = it.title,
                         status = it.status,
                         closedReason = it.closedReason,
+                        ownerNickname = ownerMap[it.userId]?.nickname,
                         updatedAt = it.updatedAt
                     )
                 },
@@ -123,5 +143,22 @@ class AdminController(
         val adminId = StpUtil.getLoginIdAsLong()
         userPermissionSupport.requireAdmin(adminId)
         return Result.ok(data = liveRoomService.adminCloseRoom(id, adminId, request.reason))
+    }
+
+    @GetMapping("/qualifications")
+    fun getQualifications(): Result<List<BroadcastQualificationDTO>> {
+        val adminId = StpUtil.getLoginIdAsLong()
+        userPermissionSupport.requireAdmin(adminId)
+        return Result.ok(data = broadcastQualificationService.getPendingApplications())
+    }
+
+    @PutMapping("/qualification/{id}/review")
+    fun reviewQualification(
+        @PathVariable id: Long,
+        @Valid @RequestBody request: ReviewQualificationRequest
+    ): Result<BroadcastQualificationDTO> {
+        val adminId = StpUtil.getLoginIdAsLong()
+        userPermissionSupport.requireAdmin(adminId)
+        return Result.ok(data = broadcastQualificationService.review(id, adminId, request))
     }
 }

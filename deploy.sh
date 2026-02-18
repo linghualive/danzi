@@ -269,7 +269,9 @@ auto_seed() {
 
     if [ "$has_tables" = "0" ]; then
         log_info "首次启动，将在服务建表后自动导入种子数据"
-        log_info "请在服务启动后运行: mysql -uroot -proot123 < sql/init.sql"
+        log_info "请在服务启动后运行:"
+        log_info "  mysql -uroot -proot123 < sql/clear_all_db.sql"
+        log_info "  mysql -uroot -proot123 < sql/seed_test_data.sql"
     fi
 }
 

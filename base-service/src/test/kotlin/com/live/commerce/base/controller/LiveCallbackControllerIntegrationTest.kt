@@ -6,6 +6,8 @@ import com.live.commerce.base.dto.CreateRoomRequest
 import com.live.commerce.base.dto.LoginRequest
 import com.live.commerce.base.dto.RegisterRequest
 import com.live.commerce.base.dto.SrsCallbackRequest
+import com.live.commerce.base.entity.BroadcastQualification
+import com.live.commerce.base.repository.BroadcastQualificationRepository
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -25,6 +27,9 @@ class LiveCallbackControllerIntegrationTest : TestcontainersConfig() {
 
     @Autowired
     lateinit var mockMvc: MockMvc
+
+    @Autowired
+    lateinit var qualificationRepository: BroadcastQualificationRepository
 
     private val objectMapper = jacksonObjectMapper()
     private var token: String = ""
@@ -50,6 +55,10 @@ class LiveCallbackControllerIntegrationTest : TestcontainersConfig() {
 
         val loginJson = objectMapper.readTree(loginResult.response.contentAsString)
         token = loginJson["data"]["token"].asText()
+        val userId = loginJson["data"]["userId"].asLong()
+
+        // Grant broadcast qualification
+        qualificationRepository.save(BroadcastQualification(userId = userId, contactInfo = "test", status = 1))
 
         // Create a room to get a streamKey
         val createRoomReq = CreateRoomRequest("Callback Test Room")

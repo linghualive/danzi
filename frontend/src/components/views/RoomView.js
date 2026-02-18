@@ -97,6 +97,18 @@ export default {
         streamError: {
             type: String,
             default: ''
+        },
+        liveSummary: {
+            type: Object,
+            default: null
+        },
+        liveSummaryVisible: {
+            type: Boolean,
+            default: false
+        },
+        fullMediaUrl: {
+            type: Function,
+            default: (v) => v || ''
         }
     },
     emits: [
@@ -120,7 +132,8 @@ export default {
         'set-emoji-category',
         'insert-emoji',
         'follow-owner',
-        'contact-owner'
+        'contact-owner',
+        'close-summary'
     ],
     data() {
         return {
@@ -470,6 +483,34 @@ export default {
                     </div>
                 </div>
 
+            </div>
+
+            <!-- Live Summary Modal -->
+            <div v-if="liveSummaryVisible && liveSummary" class="modal-overlay" @click.self="$emit('close-summary')">
+                <div class="modal-content" style="max-width:480px">
+                    <div class="modal-header">
+                        <h3>\u76F4\u64AD\u603B\u7ED3</h3>
+                        <button class="modal-close" @click="$emit('close-summary')">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div style="margin-bottom:12px;font-size:14px">
+                            <span>\u8BA2\u5355\u6570: <b>{{ liveSummary.totalOrders }}</b></span>
+                            <span style="margin-left:20px">\u603B\u91D1\u989D: <b style="color:var(--red)">&yen;{{ formatPrice(liveSummary.totalAmount || 0) }}</b></span>
+                        </div>
+                        <div v-if="liveSummary.items && liveSummary.items.length">
+                            <div v-for="item in liveSummary.items" :key="item.productId" class="order-item-row" style="padding:6px 0">
+                                <img v-if="item.productImage" class="order-item-img" :src="fullMediaUrl(item.productImage)" />
+                                <span v-else class="order-item-img-placeholder">&#128230;</span>
+                                <span class="item-name">{{ item.productName }}</span>
+                                <span class="item-qty">x{{ item.totalQuantity }}</span>
+                                <span class="item-price">&yen;{{ formatPrice(item.totalAmount || 0) }}</span>
+                            </div>
+                        </div>
+                        <div v-else class="empty-state" style="padding:16px 0">
+                            <p>\u672C\u573A\u76F4\u64AD\u6682\u65E0\u8BA2\u5355</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     `

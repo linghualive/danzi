@@ -36,6 +36,12 @@ class LiveRoom(
     @Column(name = "closed_at")
     var closedAt: LocalDateTime? = null,
 
+    @Column(name = "started_at")
+    var startedAt: LocalDateTime? = null,
+
+    @Column(name = "stopped_at")
+    var stoppedAt: LocalDateTime? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: LocalDateTime = LocalDateTime.now(),
 

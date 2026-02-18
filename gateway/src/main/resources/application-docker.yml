@@ -16,6 +16,10 @@ spring:
           uri: http://base-service:9001
           predicates:
             - Path=/api/admin/**
+        - id: base-service-broadcast
+          uri: http://base-service:9001
+          predicates:
+            - Path=/api/broadcast/**
         - id: base-service-media
           uri: http://base-service:9001
           predicates:

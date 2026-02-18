@@ -10,13 +10,38 @@ CREATE DATABASE IF NOT EXISTS mall_db DEFAULT CHARACTER SET utf8mb4 COLLATE utf8
 USE base_db;
 SET FOREIGN_KEY_CHECKS = 0;
 
+-- Backward compatibility for new base_db columns
+SET @exists := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user' AND COLUMN_NAME = 'status'
+);
+SET @sql := IF(@exists = 0, 'ALTER TABLE `user` ADD COLUMN `status` INT NOT NULL DEFAULT 0', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'live_room' AND COLUMN_NAME = 'started_at'
+);
+SET @sql := IF(@exists = 0, 'ALTER TABLE `live_room` ADD COLUMN `started_at` DATETIME NULL', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'live_room' AND COLUMN_NAME = 'stopped_at'
+);
+SET @sql := IF(@exists = 0, 'ALTER TABLE `live_room` ADD COLUMN `stopped_at` DATETIME NULL', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- Users (password hash corresponds to password123)
-INSERT INTO `user` (`id`, `username`, `password`, `nickname`, `avatar`, `role`, `created_at`, `updated_at`) VALUES
-(1, 'anchor1', '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', 'Anchor Amy', '/api/base/media/public/1', 1, NOW(), NOW()),
-(2, 'anchor2', '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', 'Anchor Bob', '/api/base/media/public/2', 1, NOW(), NOW()),
-(3, 'admin',   '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', 'Platform Admin', '/api/base/media/public/3', 2, NOW(), NOW()),
-(4, 'buyer1',  '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', 'Buyer Alice', NULL, 0, NOW(), NOW()),
-(5, 'buyer2',  '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', 'Buyer David', NULL, 0, NOW(), NOW());
+INSERT INTO `user` (`id`, `username`, `password`, `nickname`, `avatar`, `role`, `status`, `created_at`, `updated_at`) VALUES
+(1, 'anchor1', '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', 'Anchor Amy', '/api/base/media/public/1', 1, 0, NOW(), NOW()),
+(2, 'anchor2', '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', 'Anchor Bob', '/api/base/media/public/2', 1, 0, NOW(), NOW()),
+(3, 'admin',   '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', 'Platform Admin', '/api/base/media/public/3', 2, 0, NOW(), NOW()),
+(4, 'buyer1',  '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', 'Buyer Alice', NULL, 0, 0, NOW(), NOW()),
+(5, 'buyer2',  '$2a$10$EaZ.k6nouTdaaUjwSSzw.OX8WYg66GOuZ3UJ0AAyVJVbAINL9nVLe', 'Buyer David', NULL, 0, 0, NOW(), NOW());
 
 -- Base media placeholder
 INSERT INTO media_file (`id`, `file_name`, `content_type`, `file_size`, `data`, `created_by`, `created_at`) VALUES
@@ -31,6 +56,11 @@ INSERT INTO user_profile (`user_id`, `bio`, `avatar_file_id`, `updated_at`) VALU
 (3, 'Platform moderation and risk control.', 3, NOW()),
 (4, 'Frequent live shopping customer.', NULL, NOW()),
 (5, 'Interested in 3C and home goods.', NULL, NOW());
+
+-- Broadcast qualifications (anchors approved)
+INSERT INTO broadcast_qualification (`id`, `user_id`, `contact_info`, `business_license`, `personal_info`, `status`, `reject_reason`, `reviewed_by`, `reviewed_at`, `created_at`, `updated_at`) VALUES
+(1, 1, '13800000001', 'BL-2026-001', 'Beauty anchor with 3 years of experience', 1, NULL, 3, NOW(), NOW(), NOW()),
+(2, 2, '13800000002', 'BL-2026-002', 'Tech reviewer with gadget expertise', 1, NULL, 3, NOW(), NOW(), NOW());
 
 -- Live rooms
 INSERT INTO live_room (`id`, `user_id`, `title`, `cover`, `cover_file_id`, `status`, `stream_key`, `closed_reason`, `closed_by`, `closed_at`, `created_at`, `updated_at`) VALUES
@@ -138,6 +168,14 @@ SET @exists := (
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product' AND COLUMN_NAME = 'status'
 );
 SET @sql := IF(@exists = 0, 'ALTER TABLE `product` ADD COLUMN `status` INT NOT NULL DEFAULT 1', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_item' AND COLUMN_NAME = 'product_image'
+);
+SET @sql := IF(@exists = 0, 'ALTER TABLE `order_item` ADD COLUMN `product_image` VARCHAR(255) NULL', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Product media

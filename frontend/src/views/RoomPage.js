@@ -82,6 +82,9 @@ export default {
                 :room-products="store.roomProducts"
                 :stream-ready="store.streamReady"
                 :stream-error="store.streamError"
+                :live-summary="store.liveSummary"
+                :live-summary-visible="store.liveSummaryVisible"
+                :full-media-url="store.fullMediaUrl"
                 @ready="store.onRoomViewReady"
                 @navigate-rooms="goRooms"
                 @start-live="store.doStartLive"
@@ -103,6 +106,7 @@ export default {
                 @insert-emoji="store.insertEmoji"
                 @follow-owner="store.toggleFollowOwner"
                 @contact-owner="store.contactRoomOwner"
+                @close-summary="store.closeLiveSummary"
             />
         </div>
     `

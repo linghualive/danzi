@@ -25,6 +25,9 @@ class User(
     @Column(nullable = false)
     var role: Int = 0,
 
+    @Column(nullable = false)
+    var status: Int = 0, // 0=normal, 1=disabled
+
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: LocalDateTime = LocalDateTime.now(),
 

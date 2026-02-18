@@ -18,9 +18,17 @@ export default {
         isSellerView: {
             type: Boolean,
             default: false
+        },
+        keyword: {
+            type: String,
+            default: ''
+        },
+        fullMediaUrl: {
+            type: Function,
+            default: (v) => v || ''
         }
     },
-    emits: ['pay-order', 'cancel-order', 'request-refund', 'confirm-refund', 'contact-user'],
+    emits: ['pay-order', 'cancel-order', 'request-refund', 'confirm-refund', 'contact-user', 'update:keyword'],
     data() {
         return {
             nowTick: Date.now(),
@@ -63,6 +71,15 @@ export default {
     template: `
         <div class="orders-page">
             <h2>{{ isSellerView ? '我卖出的订单' : '我的订单' }}</h2>
+            <div class="order-search-bar">
+                <input
+                    class="form-input"
+                    :value="keyword"
+                    @input="$emit('update:keyword', $event.target.value)"
+                    placeholder="搜索订单号/商品名..."
+                    style="max-width:320px"
+                />
+            </div>
             <div v-if="ordersLoading" class="page-loading">
                 <span class="loading-spinner"></span> 加载订单...
             </div>
@@ -91,6 +108,8 @@ export default {
                                 v-for="item in normalizeOrderItems(order)"
                                 :key="item.id || (item.productId + '-' + item.quantity)"
                             >
+                                <img v-if="item.productImage" class="order-item-img" :src="fullMediaUrl(item.productImage)" />
+                                <span v-else class="order-item-img-placeholder">&#128230;</span>
                                 <span class="item-name">{{ item.productName || item.name || '商品' }}</span>
                                 <span class="item-qty">x{{ item.quantity || 1 }}</span>
                                 <span class="item-price">&yen;{{ formatPrice(item.price || item.amount || 0) }}</span>

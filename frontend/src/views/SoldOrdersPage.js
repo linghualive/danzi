@@ -27,6 +27,9 @@ export default {
                 :orders="store.soldOrders"
                 :order-status-text="store.orderStatusText"
                 :is-seller-view="true"
+                :keyword="store.soldOrderKeyword"
+                :full-media-url="store.fullMediaUrl"
+                @update:keyword="store.searchSoldOrders"
                 @confirm-refund="store.confirmRefund"
                 @contact-user="store.contactFromOrder"
             />

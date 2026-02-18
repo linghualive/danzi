@@ -43,6 +43,10 @@ class UserServiceImpl(
             throw BusinessException(ErrorCode.PASSWORD_INCORRECT)
         }
 
+        if (user.status == 1) {
+            throw BusinessException(ErrorCode.USER_DISABLED)
+        }
+
         StpUtil.login(user.id)
         val token = StpUtil.getTokenValue()
 

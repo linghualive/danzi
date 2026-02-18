@@ -78,6 +78,46 @@ class UserSocialServiceImpl(
         userFollowRepository.deleteByFollowerIdAndFolloweeId(currentUserId, targetId)
     }
 
+    override fun getFollowingList(targetId: Long, currentUserId: Long): List<FollowUserDTO> {
+        val follows = userFollowRepository.findByFollowerId(targetId)
+        if (follows.isEmpty()) return emptyList()
+
+        val followeeIds = follows.map { it.followeeId }
+        val users = userRepository.findAllById(followeeIds).associateBy { it.id }
+
+        return followeeIds.mapNotNull { id ->
+            val user = users[id] ?: return@mapNotNull null
+            val profile = userProfileRepository.findByUserId(id)
+            FollowUserDTO(
+                userId = user.id,
+                username = user.username,
+                nickname = user.nickname,
+                avatarUrl = profile?.avatarFileId?.let { "/api/base/media/public/$it" },
+                followedByMe = userFollowRepository.existsByFollowerIdAndFolloweeId(currentUserId, id)
+            )
+        }
+    }
+
+    override fun getFollowerList(targetId: Long, currentUserId: Long): List<FollowUserDTO> {
+        val follows = userFollowRepository.findByFolloweeId(targetId)
+        if (follows.isEmpty()) return emptyList()
+
+        val followerIds = follows.map { it.followerId }
+        val users = userRepository.findAllById(followerIds).associateBy { it.id }
+
+        return followerIds.mapNotNull { id ->
+            val user = users[id] ?: return@mapNotNull null
+            val profile = userProfileRepository.findByUserId(id)
+            FollowUserDTO(
+                userId = user.id,
+                username = user.username,
+                nickname = user.nickname,
+                avatarUrl = profile?.avatarFileId?.let { "/api/base/media/public/$it" },
+                followedByMe = userFollowRepository.existsByFollowerIdAndFolloweeId(currentUserId, id)
+            )
+        }
+    }
+
     override fun getFollowStats(currentUserId: Long, targetId: Long): FollowStatsDTO {
         val followingCount = userFollowRepository.countByFollowerId(targetId)
         val followerCount = userFollowRepository.countByFolloweeId(targetId)

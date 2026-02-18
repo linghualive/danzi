@@ -100,6 +100,22 @@ export const useAppStore = defineStore('app', {
         currentConversationMessages: [],
         newPrivateMessage: '',
 
+        orderKeyword: '',
+        soldOrderKeyword: '',
+        orderSearchTimer: null,
+
+        followListVisible: false,
+        followListType: 'following',
+        followListTargetId: null,
+        followListUsers: [],
+
+        liveSummary: null,
+        liveSummaryVisible: false,
+
+        qualificationForm: { contactInfo: '', businessLicense: '', personalInfo: '' },
+        myQualification: null,
+        adminQualifications: [],
+
         adminUsers: [],
         adminRooms: [],
 
@@ -352,6 +368,15 @@ export const useAppStore = defineStore('app', {
                     return true;
                 }
 
+                if (result.code === 6003) {
+                    this.createRoomModalVisible = false;
+                    this.addToast('需要先通过开播资格审核，正在跳转到申请页面...', 'error');
+                    setTimeout(() => {
+                        window.location.hash = '#/profile';
+                    }, 500);
+                    return false;
+                }
+
                 this.addToast(result.message || '创建失败', 'error');
                 return false;
             } catch (error) {
@@ -551,6 +576,7 @@ export const useAppStore = defineStore('app', {
                 if (result.code === 200) {
                     this.addToast('已停播', 'success');
                     await this.loadRoomDetail();
+                    this.loadLiveSummary();
                 } else {
                     this.addToast(result.message || '停播失败', 'error');
                 }
@@ -963,7 +989,11 @@ export const useAppStore = defineStore('app', {
         async loadOrders() {
             this.ordersLoading = true;
             try {
-                const result = await this.api('GET', '/api/order/list');
+                let path = '/api/order/list';
+                if (this.orderKeyword && this.orderKeyword.trim()) {
+                    path += `?keyword=${encodeURIComponent(this.orderKeyword.trim())}`;
+                }
+                const result = await this.api('GET', path);
                 if (result.code === 200) {
                     this.orders = (Array.isArray(result.data)
                         ? result.data
@@ -1053,7 +1083,11 @@ export const useAppStore = defineStore('app', {
         async loadSoldOrders() {
             this.soldOrdersLoading = true;
             try {
-                const result = await this.api('GET', '/api/order/sold');
+                let path = '/api/order/sold';
+                if (this.soldOrderKeyword && this.soldOrderKeyword.trim()) {
+                    path += `?keyword=${encodeURIComponent(this.soldOrderKeyword.trim())}`;
+                }
+                const result = await this.api('GET', path);
                 if (result.code === 200) {
                     this.soldOrders = (Array.isArray(result.data)
                         ? result.data
@@ -1394,6 +1428,162 @@ export const useAppStore = defineStore('app', {
             } catch (error) {
                 this.addToast('网络错误', 'error');
                 return false;
+            }
+        },
+
+        // === F2: Follow/Follower List ===
+        async showFollowList(type, targetId) {
+            this.followListType = type;
+            this.followListTargetId = targetId || this.currentUserId;
+            this.followListVisible = true;
+            await this.loadFollowList();
+        },
+
+        async loadFollowList() {
+            const targetId = this.followListTargetId || this.currentUserId;
+            const endpoint = this.followListType === 'following'
+                ? `/api/user/follow/following/${targetId}`
+                : `/api/user/follow/followers/${targetId}`;
+            try {
+                const result = await this.api('GET', endpoint);
+                if (result.code === 200) {
+                    this.followListUsers = Array.isArray(result.data) ? result.data : [];
+                }
+            } catch (error) {
+                this.followListUsers = [];
+            }
+        },
+
+        async toggleFollowInList(userId) {
+            const user = this.followListUsers.find((u) => u.userId === userId);
+            if (!user) return;
+            try {
+                if (user.followedByMe) {
+                    const result = await this.api('DELETE', `/api/user/follow/${userId}`);
+                    if (result.code === 200) {
+                        user.followedByMe = false;
+                        this.addToast('已取消关注', 'info');
+                    }
+                } else {
+                    const result = await this.api('POST', `/api/user/follow/${userId}`);
+                    if (result.code === 200) {
+                        user.followedByMe = true;
+                        this.addToast('关注成功', 'success');
+                    } else {
+                        this.addToast(result.message || '关注失败', 'error');
+                    }
+                }
+            } catch (error) {
+                this.addToast('操作失败', 'error');
+            }
+        },
+
+        closeFollowList() {
+            this.followListVisible = false;
+            this.followListUsers = [];
+        },
+
+        // === F3: Order Search ===
+        searchOrders(keyword) {
+            this.orderKeyword = keyword;
+            if (this.orderSearchTimer) clearTimeout(this.orderSearchTimer);
+            this.orderSearchTimer = setTimeout(() => this.loadOrders(), 400);
+        },
+
+        searchSoldOrders(keyword) {
+            this.soldOrderKeyword = keyword;
+            if (this.orderSearchTimer) clearTimeout(this.orderSearchTimer);
+            this.orderSearchTimer = setTimeout(() => this.loadSoldOrders(), 400);
+        },
+
+        // === F5: Admin user status ===
+        async updateUserStatus(userId, status) {
+            try {
+                const result = await this.api('PUT', `/api/admin/user/${userId}/status`, { status });
+                if (result.code === 200) {
+                    this.addToast(status === 1 ? '用户已禁用' : '用户已启用', 'success');
+                    this.loadAdminUsers();
+                } else {
+                    this.addToast(result.message || '操作失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('操作失败', 'error');
+            }
+        },
+
+        // === F6A: Live Summary ===
+        async loadLiveSummary() {
+            if (!this.currentRoom) return;
+            try {
+                const sellerId = this.currentRoom.userId;
+                const from = this.currentRoom.startedAt || '';
+                const to = this.currentRoom.stoppedAt || '';
+                if (!from) return;
+                const result = await this.api('GET', `/api/order/summary?sellerId=${sellerId}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+                if (result.code === 200 && result.data) {
+                    this.liveSummary = result.data;
+                    this.liveSummaryVisible = true;
+                }
+            } catch (error) {
+                console.warn('加载直播总结失败', error);
+            }
+        },
+
+        closeLiveSummary() {
+            this.liveSummaryVisible = false;
+            this.liveSummary = null;
+        },
+
+        // === F6B: Broadcast Qualification ===
+        async submitQualification() {
+            try {
+                const result = await this.api('POST', '/api/broadcast/qualification', this.qualificationForm);
+                if (result.code === 200) {
+                    this.myQualification = result.data;
+                    this.qualificationForm = { contactInfo: '', businessLicense: '', personalInfo: '' };
+                    this.addToast('申请已提交，请等待管理员审核', 'success');
+                } else {
+                    this.addToast(result.message || '提交失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('提交失败', 'error');
+            }
+        },
+
+        async loadMyQualification() {
+            try {
+                const result = await this.api('GET', '/api/broadcast/qualification/me');
+                if (result.code === 200) {
+                    this.myQualification = result.data;
+                }
+            } catch (error) {
+                // may not have applied yet
+            }
+        },
+
+        async loadAdminQualifications() {
+            if (!this.isAdmin) return;
+            try {
+                const result = await this.api('GET', '/api/admin/qualifications');
+                if (result.code === 200) {
+                    this.adminQualifications = Array.isArray(result.data) ? result.data : [];
+                }
+            } catch (error) {
+                this.adminQualifications = [];
+            }
+        },
+
+        async reviewQualification(id, status, rejectReason) {
+            try {
+                const result = await this.api('PUT', `/api/admin/qualification/${id}/review`, { status, rejectReason: rejectReason || '' });
+                if (result.code === 200) {
+                    this.addToast(status === 1 ? '已通过' : '已拒绝', 'success');
+                    this.loadAdminQualifications();
+                } else {
+                    this.addToast(result.message || '审核失败', 'error');
+                }
+            } catch (error) {
+                this.addToast('审核失败', 'error');
             }
         },
 

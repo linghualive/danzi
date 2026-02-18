@@ -227,8 +227,8 @@ class E2EAndSecurityTest : TestcontainersConfig() {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.code").value(200))
 
-        // Verify Feign client was called exactly once with the correct userId
-        Mockito.verify(userFeignClient, Mockito.times(1)).getUserById(userIdA)
+        // Verify Feign client was called with the correct userId (once for permission, once for name resolution)
+        Mockito.verify(userFeignClient, Mockito.atLeast(1)).getUserById(userIdA)
     }
 
     @Test

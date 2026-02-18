@@ -23,5 +23,8 @@ class OrderItem(
     var price: BigDecimal = BigDecimal.ZERO,
 
     @Column(nullable = false)
-    var quantity: Int = 0
+    var quantity: Int = 0,
+
+    @Column(name = "product_image")
+    var productImage: String? = null
 )

@@ -1,8 +1,10 @@
 package com.live.commerce.mall.service
 
 import com.live.commerce.mall.dto.CreateOrderRequest
+import com.live.commerce.mall.dto.LiveSummaryDTO
 import com.live.commerce.mall.dto.OrderDTO
 import com.live.commerce.mall.dto.RefundRequest
+import java.time.LocalDateTime
 
 interface OrderService {
 
@@ -12,9 +14,9 @@ interface OrderService {
 
     fun getOrderByOrderNo(orderNo: String): OrderDTO
 
-    fun getUserOrders(userId: Long): List<OrderDTO>
+    fun getUserOrders(userId: Long, keyword: String? = null): List<OrderDTO>
 
-    fun getSoldOrders(userId: Long): List<OrderDTO>
+    fun getSoldOrders(userId: Long, keyword: String? = null): List<OrderDTO>
 
     fun payOrder(orderId: Long, userId: Long): OrderDTO
 
@@ -25,4 +27,6 @@ interface OrderService {
     fun confirmRefund(orderId: Long, sellerId: Long): OrderDTO
 
     fun autoCancelExpiredOrders()
+
+    fun getLiveSummary(sellerId: Long, from: LocalDateTime, to: LocalDateTime): LiveSummaryDTO
 }

@@ -1154,6 +1154,16 @@
             border-bottom: 1px solid var(--border-subtle);
         }
         .order-item-row:last-child { border-bottom: none; }
+        .order-item-img {
+            width: 40px; height: 40px; border-radius: var(--radius-sm);
+            object-fit: cover; margin-right: 10px; flex-shrink: 0;
+        }
+        .order-item-img-placeholder {
+            width: 40px; height: 40px; border-radius: var(--radius-sm);
+            background: var(--bg-elevated); display: flex; align-items: center;
+            justify-content: center; margin-right: 10px; flex-shrink: 0; font-size: 18px;
+        }
+        .order-search-bar { margin-bottom: 16px; }
         .order-item-row .item-name { flex: 1; }
         .order-item-row .item-qty { color: var(--text-muted); margin: 0 16px; }
         .order-item-row .item-price { color: var(--red); font-weight: 600; }

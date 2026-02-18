@@ -132,7 +132,7 @@ do_seed() {
     check_docker
     log_info "导入种子数据..."
 
-    if ! docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" ps mysql | grep -q "running"; then
+    if ! docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" ps mysql | grep -qE "(running|Up)"; then
         log_error "MySQL 未运行，请先启动: ./run.sh start"
         exit 1
     fi
@@ -140,14 +140,22 @@ do_seed() {
     log_info "等待 JPA 自动建表..."
     sleep 5
 
+    log_info "清空旧数据..."
     docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" exec -T mysql \
-        mysql -uroot -p"${MYSQL_ROOT_PASSWORD:-root123}" < sql/init.sql
+        mysql -uroot -p"${MYSQL_ROOT_PASSWORD:-root123}" < sql/clear_all_db.sql
+
+    log_info "导入种子数据..."
+    docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" exec -T mysql \
+        mysql -uroot -p"${MYSQL_ROOT_PASSWORD:-root123}" < sql/seed_test_data.sql
 
     log_info "种子数据导入完成！"
     echo ""
-    echo "  测试账号:"
-    echo "    anchor1 / 123456 (美妆主播小美)"
-    echo "    anchor2 / 123456 (数码达人老王)"
+    echo "  测试账号 (密码均为 password123):"
+    echo "    anchor1  (Anchor Amy   - 主播, 已有开播资格)"
+    echo "    anchor2  (Anchor Bob   - 主播, 已有开播资格)"
+    echo "    admin    (Platform Admin - 管理员)"
+    echo "    buyer1   (Buyer Alice  - 普通用户)"
+    echo "    buyer2   (Buyer David  - 普通用户)"
     echo ""
 }
 

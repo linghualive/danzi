@@ -543,6 +543,225 @@ class OrderServiceTest {
     }
 
     @Test
+    fun `should capture product image when creating order`() {
+        val userId = 1L
+        val request = CreateOrderRequest(
+            items = listOf(OrderItemRequest(productId = 1L, quantity = 1))
+        )
+
+        val product = Product(
+            id = 1L, sellerId = 100L, name = "Product With Image",
+            price = BigDecimal("100.00"), stock = 10,
+            imageFileId = 42L
+        )
+        every { productRepository.findById(1L) } returns Optional.of(product)
+        every { productRepository.deductStock(1L, 1) } returns 1
+
+        val savedItems = mutableListOf<List<OrderItem>>()
+        every { orderRepository.save(any()) } answers {
+            firstArg<Order>().apply { id = 1L }
+        }
+        every { orderItemRepository.saveAll(any<List<OrderItem>>()) } answers {
+            val items = firstArg<List<OrderItem>>()
+            savedItems.add(items)
+            items.mapIndexed { index, item -> item.apply { id = (index + 1).toLong() } }
+        }
+        every { orderItemRepository.findByOrderId(1L) } answers {
+            savedItems.lastOrNull() ?: emptyList()
+        }
+
+        val result = orderService.createOrder(userId, request)
+
+        assertEquals(1, result.items.size)
+        assertEquals("/api/product/media/public/42", result.items[0].productImage)
+    }
+
+    @Test
+    fun `should return productImage in order item DTO`() {
+        val order = Order(
+            id = 1L, orderNo = "20240101120000001", userId = 1L,
+            sellerId = 100L, totalAmount = BigDecimal("100.00"), status = 0
+        )
+        val items = listOf(
+            OrderItem(
+                id = 1L, orderId = 1L, productId = 1L,
+                productName = "Product", price = BigDecimal("100.00"),
+                quantity = 1, productImage = "/api/product/media/public/42"
+            )
+        )
+        every { orderRepository.findById(1L) } returns Optional.of(order)
+        every { orderItemRepository.findByOrderId(1L) } returns items
+
+        val result = orderService.getOrder(1L, 1L)
+
+        assertEquals("/api/product/media/public/42", result.items[0].productImage)
+    }
+
+    @Test
+    fun `should handle null product image gracefully`() {
+        val userId = 1L
+        val request = CreateOrderRequest(
+            items = listOf(OrderItemRequest(productId = 1L, quantity = 1))
+        )
+
+        val product = Product(
+            id = 1L, sellerId = 100L, name = "No Image Product",
+            price = BigDecimal("50.00"), stock = 5,
+            imageFileId = null
+        )
+        every { productRepository.findById(1L) } returns Optional.of(product)
+        every { productRepository.deductStock(1L, 1) } returns 1
+
+        val savedItems = mutableListOf<List<OrderItem>>()
+        every { orderRepository.save(any()) } answers {
+            firstArg<Order>().apply { id = 1L }
+        }
+        every { orderItemRepository.saveAll(any<List<OrderItem>>()) } answers {
+            val items = firstArg<List<OrderItem>>()
+            savedItems.add(items)
+            items.mapIndexed { index, item -> item.apply { id = (index + 1).toLong() } }
+        }
+        every { orderItemRepository.findByOrderId(1L) } answers {
+            savedItems.lastOrNull() ?: emptyList()
+        }
+
+        val result = orderService.createOrder(userId, request)
+
+        assertEquals(1, result.items.size)
+        assertNull(result.items[0].productImage)
+    }
+
+    @Test
+    fun `should return orders filtered by orderNo keyword`() {
+        val order1 = Order(id = 1L, orderNo = "20240101120000001", userId = 1L, sellerId = 100L, totalAmount = BigDecimal("100.00"), status = 0)
+        val order2 = Order(id = 2L, orderNo = "20240202120000002", userId = 1L, sellerId = 100L, totalAmount = BigDecimal("50.00"), status = 0)
+        every { orderRepository.findByUserIdAndKeyword(1L, "%20240101%") } returns listOf(order1)
+        every { orderItemRepository.findByOrderId(1L) } returns emptyList()
+
+        val result = orderService.getUserOrders(1L, "20240101")
+
+        assertEquals(1, result.size)
+        assertEquals("20240101120000001", result[0].orderNo)
+    }
+
+    @Test
+    fun `should return orders filtered by productName keyword`() {
+        val order1 = Order(id = 1L, orderNo = "20240101120000001", userId = 1L, sellerId = 100L, totalAmount = BigDecimal("100.00"), status = 0)
+        every { orderRepository.findByUserIdAndKeyword(1L, "%手机%") } returns listOf(order1)
+        every { orderItemRepository.findByOrderId(1L) } returns listOf(
+            OrderItem(id = 1L, orderId = 1L, productId = 1L, productName = "手机壳", price = BigDecimal("100.00"), quantity = 1)
+        )
+
+        val result = orderService.getUserOrders(1L, "手机")
+
+        assertEquals(1, result.size)
+    }
+
+    @Test
+    fun `should return all orders when keyword is null`() {
+        val orders = listOf(
+            Order(id = 1L, orderNo = "001", userId = 1L, sellerId = 100L, totalAmount = BigDecimal("10.00"), status = 0),
+            Order(id = 2L, orderNo = "002", userId = 1L, sellerId = 100L, totalAmount = BigDecimal("20.00"), status = 1)
+        )
+        every { orderRepository.findByUserId(1L) } returns orders
+        every { orderItemRepository.findByOrderId(any()) } returns emptyList()
+
+        val result = orderService.getUserOrders(1L, null)
+
+        assertEquals(2, result.size)
+    }
+
+    @Test
+    fun `should return sold orders filtered by keyword`() {
+        val order1 = Order(id = 1L, orderNo = "20240101120000001", userId = 10L, sellerId = 100L, totalAmount = BigDecimal("100.00"), status = 1)
+        every { orderRepository.findBySellerIdAndKeyword(100L, "%手机%") } returns listOf(order1)
+        every { orderItemRepository.findByOrderId(1L) } returns emptyList()
+
+        val result = orderService.getSoldOrders(100L, "手机")
+
+        assertEquals(1, result.size)
+    }
+
+    @Test
+    fun `should return empty list when keyword matches nothing`() {
+        every { orderRepository.findByUserIdAndKeyword(1L, "%nonexistent%") } returns emptyList()
+
+        val result = orderService.getUserOrders(1L, "nonexistent")
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `should calculate live summary with aggregated items`() {
+        val from = LocalDateTime.of(2024, 1, 1, 0, 0)
+        val to = LocalDateTime.of(2024, 1, 1, 23, 59, 59)
+        val orders = listOf(
+            Order(id = 1L, orderNo = "001", userId = 10L, sellerId = 100L, totalAmount = BigDecimal("100.00"), status = 1, createdAt = from.plusHours(1)),
+            Order(id = 2L, orderNo = "002", userId = 11L, sellerId = 100L, totalAmount = BigDecimal("200.00"), status = 1, createdAt = from.plusHours(2))
+        )
+        every { orderRepository.findBySellerIdAndStatusInAndCreatedAtBetween(100L, listOf(1, 3, 4), from, to) } returns orders
+        every { orderItemRepository.findByOrderId(1L) } returns listOf(
+            OrderItem(id = 1L, orderId = 1L, productId = 1L, productName = "ProductA", price = BigDecimal("50.00"), quantity = 2)
+        )
+        every { orderItemRepository.findByOrderId(2L) } returns listOf(
+            OrderItem(id = 2L, orderId = 2L, productId = 1L, productName = "ProductA", price = BigDecimal("50.00"), quantity = 3),
+            OrderItem(id = 3L, orderId = 2L, productId = 2L, productName = "ProductB", price = BigDecimal("50.00"), quantity = 1)
+        )
+
+        val result = orderService.getLiveSummary(100L, from, to)
+
+        assertEquals(2, result.totalOrders)
+        assertEquals(BigDecimal("300.00"), result.totalAmount)
+        assertEquals(2, result.items.size)
+        val itemA = result.items.find { it.productId == 1L }!!
+        assertEquals(5, itemA.totalQuantity)
+        assertEquals(BigDecimal("250.00"), itemA.totalAmount)
+    }
+
+    @Test
+    fun `should return empty live summary when no orders in period`() {
+        val from = LocalDateTime.of(2024, 1, 1, 0, 0)
+        val to = LocalDateTime.of(2024, 1, 1, 23, 59, 59)
+        every { orderRepository.findBySellerIdAndStatusInAndCreatedAtBetween(100L, listOf(1, 3, 4), from, to) } returns emptyList()
+
+        val result = orderService.getLiveSummary(100L, from, to)
+
+        assertEquals(0, result.totalOrders)
+        assertEquals(BigDecimal.ZERO, result.totalAmount)
+        assertTrue(result.items.isEmpty())
+    }
+
+    @Test
+    fun `should only include paid and refund orders in live summary`() {
+        val from = LocalDateTime.of(2024, 1, 1, 0, 0)
+        val to = LocalDateTime.of(2024, 1, 1, 23, 59, 59)
+        val orders = listOf(
+            Order(id = 1L, orderNo = "001", userId = 10L, sellerId = 100L, totalAmount = BigDecimal("100.00"), status = 1, createdAt = from.plusHours(1))
+        )
+        every { orderRepository.findBySellerIdAndStatusInAndCreatedAtBetween(100L, listOf(1, 3, 4), from, to) } returns orders
+        every { orderItemRepository.findByOrderId(1L) } returns listOf(
+            OrderItem(id = 1L, orderId = 1L, productId = 1L, productName = "P1", price = BigDecimal("100.00"), quantity = 1)
+        )
+
+        val result = orderService.getLiveSummary(100L, from, to)
+
+        assertEquals(1, result.totalOrders)
+    }
+
+    @Test
+    fun `should handle blank keyword same as null`() {
+        val orders = listOf(
+            Order(id = 1L, orderNo = "001", userId = 1L, sellerId = 100L, totalAmount = BigDecimal("10.00"), status = 0)
+        )
+        every { orderRepository.findByUserId(1L) } returns orders
+        every { orderItemRepository.findByOrderId(any()) } returns emptyList()
+
+        val result = orderService.getUserOrders(1L, "   ")
+
+        assertEquals(1, result.size)
+    }
+
+    @Test
     fun `should fail pay order when expired and cancel it`() {
         val expired = Order(
             id = 1L,

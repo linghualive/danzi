@@ -4,6 +4,7 @@ import com.live.commerce.base.dto.CreateRoomRequest
 import com.live.commerce.base.dto.LiveRoomDTO
 import com.live.commerce.base.entity.LiveRoom
 import com.live.commerce.base.repository.LiveRoomRepository
+import com.live.commerce.base.repository.UserRepository
 import com.live.commerce.base.service.LiveRoomService
 import com.live.commerce.common.dto.PageResult
 import com.live.commerce.common.exception.BusinessException
@@ -16,11 +17,21 @@ import java.util.UUID
 
 @Service
 class LiveRoomServiceImpl(
-    private val liveRoomRepository: LiveRoomRepository
+    private val liveRoomRepository: LiveRoomRepository,
+    private val broadcastQualificationService: com.live.commerce.base.service.BroadcastQualificationService? = null,
+    private val userRepository: UserRepository? = null
 ) : LiveRoomService {
 
     @Transactional
     override fun createRoom(userId: Long, request: CreateRoomRequest): LiveRoomDTO {
+        // Check qualification before creating new room (skip if updating existing or if user is admin)
+        if (liveRoomRepository.findFirstByUserId(userId) == null) {
+            val isAdmin = userRepository?.findById(userId)?.map { it.role == 2 }?.orElse(false) ?: false
+            if (!isAdmin && broadcastQualificationService != null && !broadcastQualificationService.isQualified(userId)) {
+                throw BusinessException(ErrorCode.QUALIFICATION_NOT_APPROVED)
+            }
+        }
+
         liveRoomRepository.findFirstByUserId(userId)?.let { existing ->
             existing.title = request.title
             existing.coverFileId = request.coverFileId
@@ -81,6 +92,8 @@ class LiveRoomServiceImpl(
         }
 
         room.status = 1
+        room.startedAt = LocalDateTime.now()
+        room.stoppedAt = null
         room.updatedAt = LocalDateTime.now()
         val saved = liveRoomRepository.save(room)
         return toDTO(saved)
@@ -112,6 +125,7 @@ class LiveRoomServiceImpl(
         }
 
         room.status = 2
+        room.stoppedAt = LocalDateTime.now()
         room.updatedAt = LocalDateTime.now()
         val saved = liveRoomRepository.save(room)
         return toDTO(saved)
@@ -129,6 +143,8 @@ class LiveRoomServiceImpl(
         pushUrl = "rtmp://localhost:1935/live/${room.streamKey}",
         pullUrl = "http://localhost:8080/live/${room.streamKey}.flv",
         closedReason = room.closedReason,
+        startedAt = room.startedAt,
+        stoppedAt = room.stoppedAt,
         createdAt = room.createdAt
     )
 }

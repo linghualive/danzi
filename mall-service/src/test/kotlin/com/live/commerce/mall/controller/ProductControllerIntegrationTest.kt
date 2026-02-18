@@ -2,16 +2,21 @@ package com.live.commerce.mall.controller
 
 import cn.dev33.satoken.stp.StpUtil
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.live.commerce.common.dto.Result
+import com.live.commerce.common.dto.UserDTO
 import com.live.commerce.common.exception.ErrorCode
 import com.live.commerce.mall.TestcontainersConfig
 import com.live.commerce.mall.dto.CreateProductRequest
 import com.live.commerce.mall.dto.UpdateProductRequest
+import com.live.commerce.mall.feign.UserFeignClient
 import com.live.commerce.mall.repository.ProductRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.http.MediaType
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
@@ -33,6 +38,9 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
     @Autowired
     lateinit var productRepository: ProductRepository
 
+    @MockBean
+    lateinit var userFeignClient: UserFeignClient
+
     private var token: String = ""
 
     @BeforeEach
@@ -40,6 +48,9 @@ class ProductControllerIntegrationTest : TestcontainersConfig() {
         productRepository.deleteAll()
         StpUtil.login(1L)
         token = StpUtil.getTokenValue()
+
+        val userDTO = UserDTO(id = 1L, username = "testuser", nickname = "Test User", avatar = null, role = 0)
+        Mockito.`when`(userFeignClient.getUserById(1L)).thenReturn(Result.ok(userDTO))
     }
 
     @Test

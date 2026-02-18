@@ -6,6 +6,8 @@ import com.live.commerce.base.TestcontainersConfig
 import com.live.commerce.base.dto.CreateRoomRequest
 import com.live.commerce.base.dto.LoginRequest
 import com.live.commerce.base.dto.RegisterRequest
+import com.live.commerce.base.entity.BroadcastQualification
+import com.live.commerce.base.repository.BroadcastQualificationRepository
 import com.live.commerce.common.exception.ErrorCode
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -26,6 +28,9 @@ class LiveRoomControllerIntegrationTest : TestcontainersConfig() {
 
     @Autowired
     lateinit var mockMvc: MockMvc
+
+    @Autowired
+    lateinit var qualificationRepository: BroadcastQualificationRepository
 
     private val objectMapper = jacksonObjectMapper()
     private var token: String = ""
@@ -52,6 +57,9 @@ class LiveRoomControllerIntegrationTest : TestcontainersConfig() {
         val loginJson = objectMapper.readTree(loginResult.response.contentAsString)
         token = loginJson["data"]["token"].asText()
         userId = loginJson["data"]["userId"].asLong()
+
+        // Grant broadcast qualification
+        qualificationRepository.save(BroadcastQualification(userId = userId, contactInfo = "test", status = 1))
     }
 
     @Test

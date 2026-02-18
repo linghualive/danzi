@@ -8,5 +8,6 @@ data class AdminRoomDTO(
     val title: String,
     val status: Int,
     val closedReason: String?,
+    val ownerNickname: String? = null,
     val updatedAt: LocalDateTime
 )

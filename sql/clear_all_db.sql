@@ -8,6 +8,7 @@ CREATE DATABASE IF NOT EXISTS mall_db DEFAULT CHARACTER SET utf8mb4 COLLATE utf8
 USE base_db;
 SET FOREIGN_KEY_CHECKS = 0;
 
+TRUNCATE TABLE broadcast_qualification;
 TRUNCATE TABLE private_message;
 TRUNCATE TABLE user_follow;
 TRUNCATE TABLE room_warning;

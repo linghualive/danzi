@@ -165,6 +165,71 @@ class UserSocialControllerIntegrationTest : TestcontainersConfig() {
     }
 
     @Test
+    fun `should return following list for user`() {
+        val (userAId, tokenA) = registerAndLogin("flist_a")
+        val (userBId, _) = registerAndLogin("flist_b")
+        val (userCId, _) = registerAndLogin("flist_c")
+
+        // A follows B and C
+        mockMvc.perform(post("/api/user/follow/$userBId").header("satoken", tokenA))
+            .andExpect(status().isOk).andExpect(jsonPath("$.code").value(200))
+        mockMvc.perform(post("/api/user/follow/$userCId").header("satoken", tokenA))
+            .andExpect(status().isOk).andExpect(jsonPath("$.code").value(200))
+
+        mockMvc.perform(get("/api/user/follow/following/$userAId").header("satoken", tokenA))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.length()").value(2))
+    }
+
+    @Test
+    fun `should return follower list for user`() {
+        val (_, tokenA) = registerAndLogin("foll_a")
+        val (userBId, tokenB) = registerAndLogin("foll_b")
+
+        // A follows B
+        mockMvc.perform(post("/api/user/follow/$userBId").header("satoken", tokenA))
+            .andExpect(status().isOk).andExpect(jsonPath("$.code").value(200))
+
+        mockMvc.perform(get("/api/user/follow/followers/$userBId").header("satoken", tokenB))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.length()").value(1))
+    }
+
+    @Test
+    fun `should return empty following list`() {
+        val (userAId, tokenA) = registerAndLogin("empty_fing")
+
+        mockMvc.perform(get("/api/user/follow/following/$userAId").header("satoken", tokenA))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.length()").value(0))
+    }
+
+    @Test
+    fun `should return followedByMe status in lists`() {
+        val (userAId, tokenA) = registerAndLogin("fbymeA")
+        val (userBId, tokenB) = registerAndLogin("fbymeB")
+        val (userCId, _) = registerAndLogin("fbymeC")
+
+        // A follows B, A follows C
+        mockMvc.perform(post("/api/user/follow/$userBId").header("satoken", tokenA))
+            .andExpect(status().isOk)
+        mockMvc.perform(post("/api/user/follow/$userCId").header("satoken", tokenA))
+            .andExpect(status().isOk)
+        // B follows C
+        mockMvc.perform(post("/api/user/follow/$userCId").header("satoken", tokenB))
+            .andExpect(status().isOk)
+
+        // B views A's following list - B should see followedByMe=true for C (B follows C)
+        mockMvc.perform(get("/api/user/follow/following/$userAId").header("satoken", tokenB))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.length()").value(2))
+    }
+
+    @Test
     fun `should validate private message request`() {
         val (_, tokenA) = registerAndLogin("msg_validate")
 

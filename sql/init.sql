@@ -9,7 +9,13 @@ CREATE DATABASE IF NOT EXISTS mall_db DEFAULT CHARACTER SET utf8mb4 COLLATE utf8
 -- =============================================
 USE base_db;
 SET FOREIGN_KEY_CHECKS = 0;
+DELETE FROM broadcast_qualification;
+DELETE FROM private_message;
+DELETE FROM user_follow;
+DELETE FROM room_warning;
 DELETE FROM chat_message;
+DELETE FROM user_profile;
+DELETE FROM media_file;
 DELETE FROM live_room;
 DELETE FROM `user`;
 SET FOREIGN_KEY_CHECKS = 1;

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.live.commerce.base.dto.CreateRoomRequest
 import com.live.commerce.base.dto.LoginRequest
 import com.live.commerce.base.dto.RegisterRequest
+import com.live.commerce.base.entity.BroadcastQualification
+import com.live.commerce.base.repository.BroadcastQualificationRepository
 import com.live.commerce.common.exception.ErrorCode
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -22,6 +24,9 @@ class E2EAndSecurityTest : TestcontainersConfig() {
 
     @Autowired
     lateinit var mockMvc: MockMvc
+
+    @Autowired
+    lateinit var qualificationRepository: BroadcastQualificationRepository
 
     private val objectMapper = jacksonObjectMapper()
 
@@ -98,7 +103,10 @@ class E2EAndSecurityTest : TestcontainersConfig() {
     @Test
     fun `should complete anchor live room journey`() {
         val username = "e2e_anchor_${System.nanoTime()}"
-        val (_, token) = registerAndLogin(username)
+        val (userId, token) = registerAndLogin(username)
+
+        // Grant broadcast qualification
+        qualificationRepository.save(BroadcastQualification(userId = userId, contactInfo = "test", status = 1))
 
         // Step 1: Create live room
         val createReq = CreateRoomRequest("E2E Live Room")
@@ -190,7 +198,8 @@ class E2EAndSecurityTest : TestcontainersConfig() {
         val usernameB = "e2e_otherB_${System.nanoTime()}"
 
         // Register user A and create a live room
-        val (_, tokenA) = registerAndLogin(usernameA)
+        val (userAId, tokenA) = registerAndLogin(usernameA)
+        qualificationRepository.save(BroadcastQualification(userId = userAId, contactInfo = "test", status = 1))
         val createReq = CreateRoomRequest("Owner A Room")
         val createResult = mockMvc.perform(
             post("/api/live/room")

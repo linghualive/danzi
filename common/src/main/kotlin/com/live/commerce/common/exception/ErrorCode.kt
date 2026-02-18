@@ -28,6 +28,12 @@ object ErrorCode {
 
     const val MEDIA_NOT_FOUND = 5001
 
+    const val USER_DISABLED = 1006
+
+    const val QUALIFICATION_ALREADY_SUBMITTED = 6001
+    const val QUALIFICATION_NOT_FOUND = 6002
+    const val QUALIFICATION_NOT_APPROVED = 6003
+
     private val messages = mapOf(
         PARAM_ERROR to "参数错误",
         UNAUTHORIZED to "未登录",
@@ -49,7 +55,11 @@ object ErrorCode {
         ORDER_STATUS_ERROR to "订单状态错误",
         ORDER_EXPIRED to "订单已超时",
         REFUND_REASON_REQUIRED to "退款原因不能为空",
-        MEDIA_NOT_FOUND to "文件不存在"
+        MEDIA_NOT_FOUND to "文件不存在",
+        USER_DISABLED to "账号已被禁用",
+        QUALIFICATION_ALREADY_SUBMITTED to "资质申请已提交",
+        QUALIFICATION_NOT_FOUND to "资质申请不存在",
+        QUALIFICATION_NOT_APPROVED to "未通过开播资格审核，请先在个人主页提交开播资格申请"
     )
 
     fun getMessage(code: Int): String = messages[code] ?: "未知错误"

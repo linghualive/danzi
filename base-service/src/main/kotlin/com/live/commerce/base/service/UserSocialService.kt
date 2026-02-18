@@ -10,6 +10,8 @@ interface UserSocialService {
     fun follow(currentUserId: Long, targetId: Long)
     fun unfollow(currentUserId: Long, targetId: Long)
     fun getFollowStats(currentUserId: Long, targetId: Long): FollowStatsDTO
+    fun getFollowingList(targetId: Long, currentUserId: Long): List<FollowUserDTO>
+    fun getFollowerList(targetId: Long, currentUserId: Long): List<FollowUserDTO>
 
     fun sendMessage(senderId: Long, request: SendPrivateMessageRequest): PrivateMessageDTO
     fun getConversation(currentUserId: Long, targetId: Long): List<PrivateMessageDTO>

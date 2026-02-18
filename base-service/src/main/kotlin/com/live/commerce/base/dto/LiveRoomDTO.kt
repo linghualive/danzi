@@ -12,5 +12,7 @@ data class LiveRoomDTO(
     val pushUrl: String,
     val pullUrl: String,
     val closedReason: String?,
+    val startedAt: LocalDateTime? = null,
+    val stoppedAt: LocalDateTime? = null,
     val createdAt: LocalDateTime
 )

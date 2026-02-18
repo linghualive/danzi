@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
+import java.time.LocalDateTime
 import java.util.Optional
 
 class LiveRoomServiceTest {
@@ -168,6 +169,30 @@ class LiveRoomServiceTest {
 
         val exception = assertThrows<BusinessException> { liveRoomService.stopLive(1L, 100L) }
         assertEquals(ErrorCode.ROOM_STATUS_ERROR, exception.code)
+    }
+
+    @Test
+    fun `should record startedAt when starting live`() {
+        val room = LiveRoom(id = 1L, userId = 100L, title = "Test Room", streamKey = "abc123", status = 0)
+        every { liveRoomRepository.findById(1L) } returns Optional.of(room)
+        every { liveRoomRepository.save(any()) } answers { firstArg() }
+
+        val result = liveRoomService.startLive(1L, 100L)
+
+        assertNotNull(result.startedAt)
+        assertNull(result.stoppedAt)
+    }
+
+    @Test
+    fun `should record stoppedAt when stopping live`() {
+        val room = LiveRoom(id = 1L, userId = 100L, title = "Test Room", streamKey = "abc123", status = 1, startedAt = LocalDateTime.now().minusHours(1))
+        every { liveRoomRepository.findById(1L) } returns Optional.of(room)
+        every { liveRoomRepository.save(any()) } answers { firstArg() }
+
+        val result = liveRoomService.stopLive(1L, 100L)
+
+        assertNotNull(result.stoppedAt)
+        assertNotNull(result.startedAt)
     }
 
     @Test

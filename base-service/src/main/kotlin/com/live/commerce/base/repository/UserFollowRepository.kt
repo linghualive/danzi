@@ -8,4 +8,6 @@ interface UserFollowRepository : JpaRepository<UserFollow, Long> {
     fun deleteByFollowerIdAndFolloweeId(followerId: Long, followeeId: Long): Long
     fun countByFollowerId(followerId: Long): Long
     fun countByFolloweeId(followeeId: Long): Long
+    fun findByFollowerId(followerId: Long): List<UserFollow>
+    fun findByFolloweeId(followeeId: Long): List<UserFollow>
 }
