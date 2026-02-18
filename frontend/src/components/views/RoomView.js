@@ -173,7 +173,9 @@ export default {
             isFullscreen: false,
             controlsVisible: true,
             controlsTimer: null,
-            fsChatOpen: true
+            fsChatOpen: true,
+            dismissedWarningId: 0,
+            dismissedWarningKey: ''
         };
     },
     mounted() {
@@ -201,6 +203,23 @@ export default {
         },
         displayRoomEditCover() {
             return this.roomEditCoverUrl || this.currentRoom?.coverUrl || '';
+        },
+        latestRoomWarning() {
+            return Array.isArray(this.roomWarnings) && this.roomWarnings.length > 0
+                ? this.roomWarnings[0]
+                : null;
+        },
+        isRoomWarningVisible() {
+            const latest = this.latestRoomWarning;
+            if (!latest) return false;
+
+            const latestId = Number(latest.id || 0);
+            if (latestId > 0) {
+                return this.dismissedWarningId !== latestId;
+            }
+
+            const latestKey = `${latest.message || ''}|${latest.createdAt || ''}`;
+            return this.dismissedWarningKey !== latestKey;
         }
     },
     watch: {
@@ -212,6 +231,12 @@ export default {
                 });
             },
             deep: true
+        },
+        'currentRoom.id': {
+            handler() {
+                this.dismissedWarningId = 0;
+                this.dismissedWarningKey = '';
+            }
         }
     },
     methods: {
@@ -330,6 +355,20 @@ export default {
         displayPullUrl() {
             const raw = this.currentRoom?.pullUrl || '';
             return raw ? this.normalizeLiveEndpoint(raw) : '-';
+        },
+        dismissRoomWarning() {
+            const latest = this.latestRoomWarning;
+            if (!latest) return;
+
+            const latestId = Number(latest.id || 0);
+            if (latestId > 0) {
+                this.dismissedWarningId = latestId;
+                this.dismissedWarningKey = '';
+                return;
+            }
+
+            this.dismissedWarningId = 0;
+            this.dismissedWarningKey = `${latest.message || ''}|${latest.createdAt || ''}`;
         }
     },
     template: `
@@ -382,12 +421,18 @@ export default {
                 </div>
 
                 <div
-                    v-if="isRoomOwner && roomWarnings.length"
+                    v-if="isRoomOwner && latestRoomWarning && isRoomWarningVisible"
                     class="room-warning-banner"
                 >
                     <span class="room-warning-tag">管理员警告</span>
-                    <span class="room-warning-text">{{ roomWarnings[0].message }}</span>
-                    <span class="room-warning-time">{{ roomWarnings[0].createdAt || '' }}</span>
+                    <span class="room-warning-text">{{ latestRoomWarning.message }}</span>
+                    <span class="room-warning-time">{{ latestRoomWarning.createdAt || '' }}</span>
+                    <button
+                        type="button"
+                        class="room-warning-close"
+                        aria-label="关闭管理员警告"
+                        @click="dismissRoomWarning"
+                    >&times;</button>
                 </div>
 
                 <div class="video-wrapper" ref="videoWrapper" :class="{ 'controls-hidden': !controlsVisible }" @mousemove="showControls">
