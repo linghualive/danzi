@@ -2,102 +2,111 @@
 
 基于 Kotlin + Spring Boot 3 + Spring Cloud 的微服务直播电商平台，支持直播推拉流、实时弹幕聊天、商品展示与下单。
 
+## 最简单云端部署流程（4 步）
+
+### 1) 本地打包部署文件
+
+在项目根目录执行（Windows 请用 Git Bash / WSL）：
+
+```bash
+chmod +x run.sh
+./run.sh export
+```
+
+执行后会生成：`dist/live-commerce-docker.tar.gz`
+
+### 2) 上传到云服务器
+
+```bash
+scp dist/live-commerce-docker.tar.gz user@your-server:/opt/
+```
+
+### 3) 服务器解压并启动
+
+```bash
+ssh user@your-server
+cd /opt
+tar xzf live-commerce-docker.tar.gz
+cd live-commerce-docker
+chmod +x run.sh
+./run.sh start
+```
+
+### 4) 导入测试数据并访问
+
+```bash
+./run.sh seed
+```
+
+访问：
+
+- 前端：`http://服务器IP或域名`
+- 网关 API：`http://服务器IP或域名:9000`
+
 ## 环境要求
 
-- JDK 17+
-- Docker & Docker Compose
-- Maven 3.8+（项目自带 mvnw，可不单独安装）
+- Docker（含 Docker Compose V2）
+- Linux/macOS，或 Windows + Git Bash/WSL（用于执行 `run.sh`）
 
 ## 快速启动
 
 ### Linux / macOS
 
 ```bash
-# 一键启动（中间件 + 编译 + 微服务）
-./start.sh
+# 首次执行建议加可执行权限
+chmod +x run.sh
 
-# 或分步执行
-./start.sh infra      # 仅启动中间件（MySQL/Redis/SRS）
-./start.sh build      # 仅编译项目
-./start.sh services   # 仅启动微服务（需中间件已运行）
-./start.sh package    # 打包成可部署的 tar.gz
+# 构建并启动全部服务
+./run.sh start
 
-# 停止所有服务
-./start.sh stop
-
-# 查看运行状态
-./start.sh status
+# 导入测试数据（首次启动后执行）
+./run.sh seed
 ```
 
 ### Windows
 
-```cmd
-REM 一键启动
-start.bat
+在 Git Bash 或 WSL 中执行与 Linux 相同命令：
 
-REM 或分步执行
-start.bat infra       &REM 仅启动中间件
-start.bat build       &REM 仅编译项目
-start.bat services    &REM 仅启动微服务
-start.bat package     &REM 打包成可部署的 zip
-
-REM 停止所有服务
-start.bat stop
-
-REM 查看运行状态
-start.bat status
+```bash
+./run.sh start
+./run.sh seed
 ```
 
-如果你希望使用和 `run.sh` 对齐的 Docker Compose 生产编排脚本，可使用：
+## 常用命令
 
-```cmd
-REM 默认等同于 start
-run.bat
+| 命令 | 说明 |
+|------|------|
+| `run.sh start` | 构建并启动全部服务（默认命令） |
+| `run.sh stop` | 停止所有容器 |
+| `run.sh restart` | 重启所有容器 |
+| `run.sh status` | 查看容器状态 |
+| `run.sh logs` | 查看全部日志 |
+| `run.sh logs gateway` | 查看指定服务日志 |
+| `run.sh seed` | 清空业务数据并导入种子数据 |
+| `run.sh rebuild` | 重新编译 Java 服务并重启 |
+| `run.sh down` | 停止并删除容器 |
+| `run.sh clean` | 删除容器和数据卷（会清空 MySQL/Redis 数据） |
+| `run.sh export` | 构建镜像并导出部署包 |
 
-REM 或显式执行
-run.bat start
-run.bat status
-run.bat logs
-run.bat seed
-run.bat stop
-```
-
-启动完成后：
+## 启动后访问地址
 
 | 入口 | 地址 |
 |------|------|
+| 前端页面 | http://localhost:80 |
 | Gateway（统一入口） | http://localhost:9000 |
 | base-service | http://localhost:9001 |
 | mall-service | http://localhost:9002 |
-| 前端测试页面 | 浏览器打开 `frontend/index.html` |
-| Swagger (base) | http://localhost:9001/swagger-ui.html |
-| Swagger (mall) | http://localhost:9002/swagger-ui.html |
+| SRS RTMP | rtmp://localhost:1935/live/ |
+| SRS HTTP-FLV | http://localhost:8080 |
 
-## 导入测试数据
+## 导入测试数据与账号
 
-首次启动后，表结构由 JPA 自动创建。建议用以下两个脚本：
+`run.sh seed` 会执行：
 
 - `sql/clear_all_db.sql`：清空 `base_db` 和 `mall_db` 业务数据
-- `sql/seed_test_data.sql`：补齐测试数据（用户、直播间、商品、订单、消息等）
+- `sql/seed_test_data.sql`：导入用户、直播间、商品、订单、消息等示例数据
 
-Linux/macOS：
-
-```bash
-docker exec -i live-commerce-mysql mysql -uroot -proot123 < sql/clear_all_db.sql
-docker exec -i live-commerce-mysql mysql -uroot -proot123 < sql/seed_test_data.sql
-```
-
-Windows `cmd`：
-
-```cmd
-docker exec -i live-commerce-mysql mysql -uroot -proot123 < .\sql\clear_all_db.sql && docker exec -i live-commerce-mysql mysql -uroot -proot123 < .\sql\seed_test_data.sql
-```
-
-说明：`seed_test_data.sql` 已包含订单状态样例（待支付、已支付、已取消、退款申请中、已退款），用于联调退款流程（买家申请，卖家确认）。
-
-### 测试账号（seed_test_data.sql）
-
-密码统一为：`password123`
+测试账号密码统一为：`password123`
 
 | 用户名 | 角色 | 说明 |
 |------|------|------|
@@ -114,172 +123,58 @@ docker exec -i live-commerce-mysql mysql -uroot -proot123 < .\sql\clear_all_db.s
 - 服务器：`rtmp://localhost:1935/live`
 - 推流密钥：进入直播间详情页底部查看 `streamKey`
 
-## 配置修改
+## 端口与环境变量
 
-项目中的中间件地址默认全部指向 `localhost`。如果你的 MySQL/Redis/SRS 部署在其他机器上，需要修改以下文件：
+`docker-compose.prod.yml` 支持以下常用变量覆盖：
 
-### MySQL
+- `MYSQL_ROOT_PASSWORD`（默认 `root123`）
+- `MYSQL_PORT`（默认 `3306`）
+- `REDIS_PORT`（默认 `6379`）
+- `GATEWAY_PORT`（默认 `9000`）
+- `FRONTEND_PORT`（默认 `80`）
+- `SRS_RTMP_PORT`（默认 `1935`）
+- `SRS_HTTP_PORT`（默认 `8080`）
+- `SRS_API_PORT`（默认 `1985`）
+- `BASE_JAVA_OPTS` / `MALL_JAVA_OPTS` / `GATEWAY_JAVA_OPTS`
 
-需要改 **2 个** 配置文件（两个服务各连各的库）：
-
-| 文件 | 配置项 |
-|------|--------|
-| `base-service/src/main/resources/application.yml` | `spring.datasource.url` / `username` / `password` |
-| `mall-service/src/main/resources/application.yml` | `spring.datasource.url` / `username` / `password` |
-
-示例：
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://你的MySQL地址:3306/base_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
-    username: root
-    password: 你的密码
-```
-
-> base-service 连 `base_db`，mall-service 连 `mall_db`，注意区分。
-
-如果同时改了 Docker 中 MySQL 的端口映射，还需修改 `docker-compose.yml` 的 `ports` 配置。
-
-### Redis
-
-需要改 **3 个** 配置文件（三个服务都用 Redis 做 Sa-Token 会话共享）：
-
-| 文件 | 配置项 |
-|------|--------|
-| `base-service/src/main/resources/application.yml` | `spring.data.redis.host` / `port` |
-| `mall-service/src/main/resources/application.yml` | `spring.data.redis.host` / `port` |
-| `gateway/src/main/resources/application.yml` | `spring.data.redis.host` / `port` |
-
-示例：
-
-```yaml
-spring:
-  data:
-    redis:
-      host: 你的Redis地址
-      port: 6379
-```
-
-### SRS（直播流媒体服务器）
-
-SRS 相关配置分散在多处：
-
-| 改什么 | 文件 | 说明 |
-|--------|------|------|
-| SRS 回调地址 | `srs/srs.conf` | `on_publish` 和 `on_unpublish` 中的 `host.docker.internal:9001` 改为 base-service 的实际地址 |
-| 推流地址 | `base-service/.../LiveRoomServiceImpl.kt` | `toDTO()` 方法中的 `rtmp://localhost:1935` |
-| 拉流地址 | `base-service/.../LiveRoomServiceImpl.kt` | `toDTO()` 方法中的 `http://localhost:8080` |
-| 前端 OBS 显示 | `frontend/src/components/views/RoomView.js` | 页面中硬编码的 `rtmp://localhost:1935/live` |
-| Docker 端口 | `docker-compose.yml` | SRS 的 `1935`、`8080`、`1985` 端口映射 |
-
-### Gateway 路由
-
-如果修改了 base-service 或 mall-service 的地址/端口，需要同步修改网关路由：
-
-文件：`gateway/src/main/resources/application.yml`
-
-```yaml
-spring:
-  cloud:
-    gateway:
-      routes:
-        - id: base-service-user
-          uri: http://你的base-service地址:9001   # 修改这里
-          predicates:
-            - Path=/api/user/**
-        # ... 其他路由同理
-```
-
-### Feign 服务间调用
-
-mall-service 通过 Feign 调用 base-service，默认地址 `http://localhost:9001`。修改方式：
-
-在 `mall-service/src/main/resources/application.yml` 中添加：
-
-```yaml
-feign:
-  base-service:
-    url: http://你的base-service地址:9001
-```
-
-### 前端 API 地址
-
-文件：`frontend/src/stores/app.js`，修改 `apiBase` 变量：
-
-```javascript
-apiBase: 'http://你的Gateway地址:9000'
-```
-
-## 端口汇总
-
-| 服务 | 默认端口 |
-|------|----------|
-| Gateway | 9000 |
-| base-service | 9001 |
-| mall-service | 9002 |
-| MySQL | 3306 |
-| Redis | 6379 |
-| SRS RTMP | 1935 |
-| SRS HTTP-FLV | 8080 |
-| SRS API | 1985 |
-
-## 打包部署
-
-执行 `./start.sh package`（Linux/macOS）或 `start.bat package`（Windows）后，会在 `dist/` 目录生成部署包：
-
-- Linux/macOS: `dist/live-commerce.tar.gz`
-- Windows: `dist\live-commerce.zip`
-
-部署包结构：
-
-```
-live-commerce/
-├── lib/                        # 可执行 JAR
-│   ├── base-service-1.0.0-SNAPSHOT.jar
-│   ├── mall-service-1.0.0-SNAPSHOT.jar
-│   └── gateway-1.0.0-SNAPSHOT.jar
-├── conf/                       # 配置文件（部署时在此修改）
-│   ├── base-service.yml
-│   ├── mall-service.yml
-│   └── gateway.yml
-├── sql/init.sql                # 建库 + 种子数据
-├── srs/srs.conf                # SRS 流媒体配置
-├── docker-compose.yml          # 中间件编排
-├── frontend/                   # Vue 前端源码与入口（frontend/index.html）
-├── deploy.sh                   # Linux 部署脚本
-├── deploy.bat                  # Windows 部署脚本
-└── logs/                       # 运行时日志目录
-```
-
-### 部署步骤
+示例（Linux/macOS）：
 
 ```bash
-# 1. 上传到服务器并解压
-tar -xzf live-commerce.tar.gz
-cd live-commerce
-
-# 2. 修改配置（MySQL/Redis 地址、端口、密码等）
-vim conf/base-service.yml
-vim conf/mall-service.yml
-vim conf/gateway.yml
-
-# 3. 启动中间件（或跳过，使用已有的 MySQL/Redis/SRS）
-docker compose up -d
-
-# 4. 首次部署导入种子数据
-mysql -uroot -p < sql/init.sql
-
-# 5. 启动服务
-./deploy.sh start
-
-# 6. 其他操作
-./deploy.sh stop       # 停止
-./deploy.sh restart    # 重启
-./deploy.sh status     # 查看状态
+MYSQL_ROOT_PASSWORD=your_password GATEWAY_PORT=19000 ./run.sh start
 ```
 
-Windows 服务器将上述 `./deploy.sh` 替换为 `deploy.bat` 即可。
+示例（Windows Git Bash / WSL）：
+
+```bash
+MYSQL_ROOT_PASSWORD=your_password GATEWAY_PORT=19000 ./run.sh start
+```
+
+## 打包部署（推荐）
+
+本地执行：
+
+```bash
+./run.sh export
+```
+
+会生成：`dist/live-commerce-docker.tar.gz`
+
+服务器部署步骤：
+
+```bash
+tar xzf live-commerce-docker.tar.gz
+cd live-commerce-docker
+./run.sh start
+./run.sh seed
+```
+
+说明：部署包内含 `images.tar`。`./run.sh start` 会自动加载该镜像包并启动。
+
+Windows 在 Git Bash / WSL 中同样使用：
+
+```bash
+./run.sh export
+```
 
 ## 技术栈
 
